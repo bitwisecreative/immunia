@@ -6,28 +6,77 @@
 -- version: 0.1
 -- script:  lua
 
+-- seed rng
+math.randomseed(tstamp())
+
+-- int won't overflow like pico8...
 f=0
 
-function TIC()
-  f=f+1
+-- screen size
+sw=240
+sh=136
 
-  -- screen size 240x136
-  cls(0)
+-- cell grid is 13x6 :[]
+-- 0=empty, 1=white, 2=bacteria, 3=virus
+grid={}
 
-  -- title
-  -- print(text x=0 y=0 color=15 fixed=false scale=1 smallfont=false) -> width`
-  rectb(0,0,240,136,1)
-  rect(0,0,240,14,1)
-  print("Immunia",2,2,0,false,2)
+function BOOT()
 
-  -- background
-  for y=16,136-16,16 do
-    for x=80,240-32,16 do
-      pix(x+8,y+8,1)
+  -- grid test
+  for y=1,6 do
+    grid[y]={}
+    for x=1,13 do
+      grid[y][x]=rint(0,3)
     end
   end
 
 end
+
+-- WHAMMY!
+function TIC()
+  f=f+1
+  cls(0)
+
+  -- frame
+  rect(0,0,sw,26,1)
+  rect(0,0,16,sh,1)
+  rect(sw-16,0,16,sh,1)
+  rect(0,sh-14,sw,16,1)
+
+  -- title
+  -- print(text x=0 y=0 color=15 fixed=false scale=1 smallfont=false) -> width`
+  print("Immunia",16,5,0,false,3)
+
+  -- ;)
+  bxoffset=16
+  spr(240,0+bxoffset,127)
+  print("itwisecreative.com",9+bxoffset,129,0)
+
+  -- draw game board
+  for y=1,6 do
+    for x=1,13 do
+      e=grid[y][x]
+      sx=x*16 -- this works as-is because of the margin...
+      sy=y*16+10
+      if e==0 then pix(sx+8,sy+8,1) end
+      if e==1 then spr(0,sx,sy,-1,1,0,0,2,2) end
+      if e==2 then spr(32,sx,sy,-1,1,0,0,2,2) end
+      if e==3 then spr(64,sx,sy,-1,1,0,0,2,2) end
+      --spr(96,sx,sy,-1,1,0,0,2,2)
+      --print(e,sx+6,sy+6,1)
+      -- `spr(id x y colorkey=-1 scale=1 flip=0 rotate=0 w=1 h=1)`
+      --spr(96,x,y,-1,1,0,0,2,2)
+    end
+  end
+
+end
+
+-- inclusive
+function rint(min,max)
+  return math.floor(math.random()*(max-min+1))+min;
+end
+
+
 
 -- <TILES>
 -- 000:0000000000000010000010110000110000110000000100000010000001100000
@@ -102,6 +151,11 @@ end
 -- 089:1000000010000000110000001111000010010000100100001001000000000000
 -- 090:0000000100000001000000010000111100001101000011010000010100000000
 -- 091:1000000010000000110000001110000001010000010010000100000000000000
+-- 096:0000000001111111010000000100000001000000010000000100000001000000
+-- 097:0000000011111110000000100000001000000010000000100000001000000010
+-- 112:0100000001000000010000000100000001000000010000000111111100000000
+-- 113:0000001000000010000000100000001000000010000000101111111000000000
+-- 240:0000000000000000011000000111111001100110011001100111111000000000
 -- </TILES>
 
 -- <WAVES>
