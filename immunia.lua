@@ -94,8 +94,15 @@ function draw_cell(c)
   local sx=c.x*16 -- this works as-is because of the margin...
   local sy=c.y*16+10
   local sprnum=0 -- wbc
+  local drawshield=false
+  local shieldcolor=1
+  if c.t=='wbc' then
+    drawshield=true
+  end
   if c.t=='bacteria' then
     sprnum=32
+    drawshield=true
+    shieldcolor=0
   end
   if c.t=='virus' then
     sprnum=64
@@ -104,6 +111,44 @@ function draw_cell(c)
     sprnum=96
   end
   spr(sprnum+((c.a-1)*2),sx,sy,-1,1,c.f,c.r,2,2)
+  -- shield
+  if drawshield then
+    if c.s[1][1] then
+      pix(sx+6,sy+6,shieldcolor)
+      pix(sx+7,sy+6,shieldcolor)
+      pix(sx+6,sy+7,shieldcolor)
+    end
+    if c.s[2][1] then
+      pix(sx+8,sy+6,shieldcolor)
+    end
+    if c.s[3][1] then
+      pix(sx+9,sy+6,shieldcolor)
+      pix(sx+10,sy+6,shieldcolor)
+      pix(sx+10,sy+7,shieldcolor)
+    end
+    if c.s[1][2] then
+      pix(sx+6,sy+8,shieldcolor)
+    end
+    if c.s[2][2] then
+      pix(sx+8,sy+8,shieldcolor)
+    end
+    if c.s[3][2] then
+      pix(sx+10,sy+8,shieldcolor)
+    end
+    if c.s[1][3] then
+      pix(sx+6,sy+9,shieldcolor)
+      pix(sx+6,sy+10,shieldcolor)
+      pix(sx+7,sy+10,shieldcolor)
+    end
+    if c.s[2][3] then
+      pix(sx+8,sy+10,shieldcolor)
+    end
+    if c.s[3][3] then
+      pix(sx+10,sy+9,shieldcolor)
+      pix(sx+10,sy+10,shieldcolor)
+      pix(sx+9,sy+10,shieldcolor)
+    end
+  end
   --spr(96,sx,sy,-1,1,0,0,2,2)
   --print(e,sx+6,sy+6,1)
   -- `spr(id x y colorkey=-1 scale=1 flip=0 rotate=0 w=1 h=1)`
