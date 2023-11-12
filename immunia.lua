@@ -6,6 +6,20 @@
 -- version: 0.1
 -- script:  lua
 
+-- menu: OPEN
+-- requires "menu:" meta tag above...
+  -- I tried everything to find a way to force open the TIC-80 game menu from code, including scouring the source code for holes.
+  -- I found nada... Best bet is to create a custom menu that can be accessed by ` key or clicking menu button or a custom menu item in TIC-80 menu.
+  -- Not impressed with TIC-80 mobile web implementation...
+function opengamemenu()
+  trace("Open Game Menu")
+end
+GameMenu={opengamemenu}
+function MENU(i)
+ GameMenu[i+1]()
+end
+
+
 -- seed rng
 math.randomseed(tstamp())
 
@@ -102,12 +116,6 @@ function TIC()
       --
     end
   end
-
-  -- game menu...
-    -- I tried everything to find a way to force open the TIC-80 game menu from code, including scouring the source code for holes.
-    -- I found nada... Best bet is to create a custom menu that can be accessed by ` key or clicking menu button or a custom menu item in TIC-80 menu.
-    -- Not impressed with TIC-80 mobile web implementation...
-  --
 
   -- controls
   local mx,my,mb=mouse()
