@@ -20,6 +20,24 @@ sh=136
 -- 0=empty, 1=wbc, 2=bacteria, 3=virus
 grid={}
 
+-- moving
+moving={
+  x=0,
+  y=0,
+  f=0
+}
+
+arrowblink={false,7} -- visible, frame switch
+
+-- swipe detection
+swipeminmove=20
+swipe={
+  x=0,
+  y=0,
+  b=false
+}
+
+-- INIT
 function BOOT()
 
   -- grid test
@@ -31,7 +49,17 @@ function BOOT()
       if r==1 then t='wbc' end
       if r==2 then t='bacteria' end
       if r==3 then t='virus' end
-      grid[y][x]=gen_cell(t,x,y)
+      local cell=gen_cell(t,x,y)
+      -- random shield degen
+      for y=1,3 do
+        for x=1,3 do
+          cell.s[x][y]=rint(0,1)
+        end
+      end
+      -- but nucleus always 1
+      cell.s[2][2]=1
+      -- assign grid
+      grid[y][x]=cell
     end
   end
 
@@ -71,6 +99,117 @@ function TIC()
     end
   end
 
+  -- controls
+  local mx,my,mb=mouse()
+  if moving.f==0 then
+    -- Controller/Arrows, WASD
+    if btnp(0) or keyp(23) then
+      moving.x=0
+      moving.y=-1
+      moving.f=f
+    end
+    if btnp(1) or keyp(19) then
+      moving.x=0
+      moving.y=1
+      moving.f=f
+    end
+    if btnp(2) or keyp(1) then
+      moving.x=-1
+      moving.y=0
+      moving.f=f
+    end
+    if btnp(3) or keyp(4) then
+      moving.x=1
+      moving.y=0
+      moving.f=f
+    end
+    -- Swipe
+    local mdir={
+      x=0,
+      y=0
+    }
+    local movedx=swipe.x-mx
+    local movedy=swipe.y-my
+    local absmovedx=math.abs(movedx)
+    local absmovedy=math.abs(movedy)
+    if absmovedx>=swipeminmove or absmovedy>=swipeminmove then
+      if absmovedx>=absmovedy then
+        -- x
+        if movedx<0 then
+          mdir.x=1
+          mdir.y=0
+        else
+          mdir.x=-1
+          mdir.y=0
+        end
+      else
+        -- y
+        if movedy<0 then
+          mdir.x=0
+          mdir.y=1
+        else
+          mdir.x=0
+          mdir.y=-1
+        end
+      end
+    end
+    if mb~=swipe.b then
+      if mb then
+        swipe.x=mx
+        swipe.y=my
+      else
+        if absmovedx>=swipeminmove or absmovedy>=swipeminmove then
+          moving.x=mdir.x
+          moving.y=mdir.y
+          moving.f=f
+        end
+      end
+      swipe.b=mb
+    else
+      if mb then
+        line(swipe.x,swipe.y,mx,my,1)
+        if mdir.y==-1 then
+          draw_arrow('up')
+        end
+        if mdir.y==1 then
+          draw_arrow('down')
+        end
+        if mdir.x==-1 then
+          draw_arrow('left')
+        end
+        if mdir.x==1 then
+          draw_arrow('right')
+        end
+      end
+    end
+  else
+    if f-moving.f>=30 then
+      moving.x=0
+      moving.y=0
+      moving.f=0
+    end
+  end
+  print(moving.x..','..moving.y,150,1,0)
+  print(mx..','..my..','..bint(mb),150,10,0)
+  print(swipe.x..','..swipe.y..','..bint(swipe.b),150,17,0)
+
+  -- move arrows
+  -- arrows
+  if f%arrowblink[2]==0 then arrowblink[1]= not arrowblink[1] end
+  if arrowblink[1] then
+    if moving.y==-1 then
+      draw_arrow('up')
+    end
+    if moving.y==1 then
+      draw_arrow('down')
+    end
+    if moving.x==-1 then
+      draw_arrow('left')
+    end
+    if moving.x==1 then
+      draw_arrow('right')
+    end
+  end
 end
 
 function gen_cell(t,x,y)
@@ -87,6 +226,9 @@ function gen_cell(t,x,y)
       {1,1,1}
     }
   }
+  -- virus only rotates...
+  if t=='virus' then e.f=0 end
+  --
   return e
 end
 
@@ -113,51 +255,60 @@ function draw_cell(c)
   spr(sprnum+((c.a-1)*2),sx,sy,-1,1,c.f,c.r,2,2)
   -- shield
   if drawshield then
-    if c.s[1][1] then
+    if c.s[1][1]==1 then
       pix(sx+6,sy+6,shieldcolor)
       pix(sx+7,sy+6,shieldcolor)
       pix(sx+6,sy+7,shieldcolor)
     end
-    if c.s[2][1] then
+    if c.s[2][1]==1 then
       pix(sx+8,sy+6,shieldcolor)
     end
-    if c.s[3][1] then
+    if c.s[3][1]==1 then
       pix(sx+9,sy+6,shieldcolor)
       pix(sx+10,sy+6,shieldcolor)
       pix(sx+10,sy+7,shieldcolor)
     end
-    if c.s[1][2] then
+    if c.s[1][2]==1 then
       pix(sx+6,sy+8,shieldcolor)
     end
-    if c.s[2][2] then
-      pix(sx+8,sy+8,shieldcolor)
+    if c.s[2][2]==1 then
+      pix(sx+8,sy+8,shieldcolor) -- nucleus? :3
     end
-    if c.s[3][2] then
+    if c.s[3][2]==1 then
       pix(sx+10,sy+8,shieldcolor)
     end
-    if c.s[1][3] then
+    if c.s[1][3]==1 then
       pix(sx+6,sy+9,shieldcolor)
       pix(sx+6,sy+10,shieldcolor)
       pix(sx+7,sy+10,shieldcolor)
     end
-    if c.s[2][3] then
+    if c.s[2][3]==1 then
       pix(sx+8,sy+10,shieldcolor)
     end
-    if c.s[3][3] then
+    if c.s[3][3]==1 then
       pix(sx+10,sy+9,shieldcolor)
       pix(sx+10,sy+10,shieldcolor)
       pix(sx+9,sy+10,shieldcolor)
     end
   end
-  --spr(96,sx,sy,-1,1,0,0,2,2)
-  --print(e,sx+6,sy+6,1)
+end
+
+function draw_arrow(dir)
   -- `spr(id x y colorkey=-1 scale=1 flip=0 rotate=0 w=1 h=1)`
-  --spr(96,x,y,-1,1,0,0,2,2)
+  if dir=='up' then spr(128,sw/2-16,26,0,1,0,0,4,2) end
+  if dir=='down' then spr(128,sw/2-16,106,0,1,0,2,4,2) end
+  if dir=='left' then spr(128,16,sh/2-10,0,1,0,3,4,2) end
+  if dir=='right' then spr(128,sw-32,sh/2-10,0,1,0,1,4,2) end
 end
 
 -- inclusive
 function rint(min,max)
   return math.floor(math.random()*(max-min+1))+min;
+end
+
+-- bool to int
+function bint(b)
+  return b and 1 or 0
 end
 
 
@@ -259,6 +410,12 @@ end
 -- 121:1000000000000000000000000000000000000000000000000000000000000000
 -- 122:0000000100000000000000000000000000000000000000000000000000000000
 -- 123:1000000000000000000000000000000000000000000000000000000000000000
+-- 129:0000000100000011000001110000111100011111001111110111111111111111
+-- 130:1000000011000000111000001111000011111000111111001111111011111111
+-- 144:0000000100000011000001110000111100011111001111110111111111111111
+-- 145:1111111111111111111111111111111111111111111111111111111111111111
+-- 146:1111111111111111111111111111111111111111111111111111111111111111
+-- 147:1000000011000000111000001111000011111000111111001111111011111111
 -- 240:0000000000000000011000000111111001100110011001100111111000000000
 -- </TILES>
 
