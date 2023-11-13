@@ -38,6 +38,7 @@ gsy=6
 cells={}
 
 -- move
+movespeed=15
 move={
   n=0,
   p=false, -- processed
@@ -56,30 +57,65 @@ swipe={
   b=false
 }
 
+-- test maps...
+testmaps={
+  wbc={
+    {0,0,0,0,0,1,0,0,0,0,0,0,0},
+    {0,0,0,0,0,1,0,0,0,0,0,0,0},
+    {0,0,4,1,1,1,1,1,4,0,0,0,0},
+    {0,0,0,0,0,1,0,0,0,0,0,0,0},
+    {0,0,0,0,0,1,0,0,0,0,0,0,0},
+    {0,0,0,0,0,0,0,0,0,0,0,0,0},
+  }
+}
+testmap='wbc'
+
 -- INIT
 function BOOT()
 
   -- populate (grid style)
   for y=1,gsy do
     for x=1,gsx do
-      -- chance of cell
-      if rint(1,5)==1 then
-        local r=rint(1,4)
-        if r==1 then t='wbc' end
-        if r==2 then t='bacteria' end
-        if r==3 then t='virus' end
-        if r==4 then t='blocked' end
-        local cell=gen_cell(t,x,y)
-        -- random shield degen
-        for y=1,3 do
-          for x=1,3 do
-            cell.s[x][y]=rint(0,1)
+      -- test map
+      if testmap then
+        local r=testmaps[testmap][y][x]
+        if r>0 then
+          if r==1 then t='wbc' end
+          if r==2 then t='bacteria' end
+          if r==3 then t='virus' end
+          if r==4 then t='blocked' end
+          local cell=gen_cell(t,x,y)
+          -- random shield degen
+          for y=1,3 do
+            for x=1,3 do
+              cell.s[x][y]=rint(0,1)
+            end
           end
+          -- but nucleus always 1
+          cell.s[2][2]=1
+          -- append
+          table.insert(cells,cell)
         end
-        -- but nucleus always 1
-        cell.s[2][2]=1
-        -- append
-        table.insert(cells,cell)
+      else
+        -- chance of cell
+        if rint(1,5)==1 then
+          local r=rint(1,4)
+          if r==1 then t='wbc' end
+          if r==2 then t='bacteria' end
+          if r==3 then t='virus' end
+          if r==4 then t='blocked' end
+          local cell=gen_cell(t,x,y)
+          -- random shield degen
+          for y=1,3 do
+            for x=1,3 do
+              cell.s[x][y]=rint(0,1)
+            end
+          end
+          -- but nucleus always 1
+          cell.s[2][2]=1
+          -- append
+          table.insert(cells,cell)
+        end
       end
     end
   end
@@ -207,7 +243,7 @@ function TIC()
       end
     end
   else
-    if f-move.f>=30 then
+    if f-move.f>=movespeed then
       move.x=0
       move.y=0
       move.f=0
@@ -237,24 +273,38 @@ function TIC()
     end
   end
 
-  -- calcualte movement
+  -- calculate move
   if move.f>0 and not move.p then
+    -- first, process wbc movement... multiple passes...
+    local wbcs={}
     for k,cell in pairs(cells) do
-      -- wbc
-      if cell.t=='wbc' then
+      if cell.t=='wbc' then table.insert(wbcs,cell) end
+    end
+    local limit=0;
+    while not all_cells_processed(wbcs) do
+      limit=limit+1
+      if limit>20 then
+        trace('while loop limit broken...')
+        break
+      end
+      for k,cell in pairs(wbcs) do
         if not cell.p then
-          local tx,ty=get_target_loc(cell)
+          local tx,ty=get_target_loc(cell.x,cell.y)
           local target=get_cell_at(tx,ty)
-          if not target then
+          if not target then -- empty -- can move (wbc can only move when empty...)
+            -- move wbc
             cell.x=tx
             cell.y=ty
             cell.p=true
+          else
+            if target.t~='wbc' or target.p then -- if target is not wbc, or wbc is processed...
+              cell.p=true
+            end
           end
         end
       end
     end
-    trace('----')
-    move.p=true
+    move.p=true -- move processed...
   end
 
 end
@@ -266,14 +316,31 @@ function get_cell_at(x,y)
   return false
 end
 
-function get_target_loc(cell)
-  local tx=cell.x+move.x
+function get_target_loc(x,y)
+  local tx=x+move.x
   if tx<1 then tx=gsx end
   if tx>gsx then tx=1 end
-  local ty=cell.y+move.y
+  local ty=y+move.y
   if ty<1 then ty=gsy end
   if ty>gsy then ty=1 end
   return tx, ty
+end
+
+function get_reverse_target_loc(x,y)
+  local tx=x+-move.x
+  if tx<1 then tx=gsx end
+  if tx>gsx then tx=1 end
+  local ty=y+-move.y
+  if ty<1 then ty=gsy end
+  if ty>gsy then ty=1 end
+  return tx, ty
+end
+
+function all_cells_processed(c)
+  for k,cell in pairs(c) do
+    if not cell.p then return false end
+  end
+  return true
 end
 
 function reset_cell_processed()
@@ -284,13 +351,13 @@ end
 
 function gen_cell(t,x,y)
   local e={
-    t=t, -- type (empty, wbc, bacteria, or virus)
+    t=t, -- type (wbc, bacteria, virus, blocked)
     x=x,
     y=y,
     r=rint(0,3),
     f=rint(0,3),
-    p=false, -- "processed" -- i think wbcs will need at least 2 checks per frame... not sure atm...
     a=1, -- anim, all use 6 frames (same anims...)
+    p=false, -- processed (move)
     s={ -- shield -> (wbc and bacteria)
       {1,1,1},
       {1,1,1},
