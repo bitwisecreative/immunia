@@ -31,18 +31,22 @@ sw=240
 sh=136
 
 -- cell grid is 13x6 :[]
--- 0=empty, 1=wbc, 2=bacteria, 3=virus
-grid={}
+gsx=13
+gsy=6
 
--- moving
-moving={
+-- cells
+cells={}
+
+-- move
+move={
   n=0,
+  p=false, -- processed
   x=0,
   y=0,
   f=0
 }
 
-arrowblink={false,7} -- visible, frame switch
+arrowblink={false,2} -- visible, frame switch
 
 -- swipe detection
 swipeminmove=20
@@ -55,29 +59,28 @@ swipe={
 -- INIT
 function BOOT()
 
-  -- grid test
-  for y=1,6 do
-    grid[y]={}
-    for x=1,13 do
-      local r=rint(0,4)
-      local t='empty'
-      if rint(1,3)==1 then -- reduce occurrence of non-empty cell
+  -- populate (grid style)
+  for y=1,gsy do
+    for x=1,gsx do
+      -- chance of cell
+      if rint(1,5)==1 then
+        local r=rint(1,4)
         if r==1 then t='wbc' end
         if r==2 then t='bacteria' end
         if r==3 then t='virus' end
         if r==4 then t='blocked' end
-      end
-      local cell=gen_cell(t,x,y)
-      -- random shield degen
-      for y=1,3 do
-        for x=1,3 do
-          cell.s[x][y]=rint(0,1)
+        local cell=gen_cell(t,x,y)
+        -- random shield degen
+        for y=1,3 do
+          for x=1,3 do
+            cell.s[x][y]=rint(0,1)
+          end
         end
+        -- but nucleus always 1
+        cell.s[2][2]=1
+        -- append
+        table.insert(cells,cell)
       end
-      -- but nucleus always 1
-      cell.s[2][2]=1
-      -- assign grid
-      grid[y][x]=cell
     end
   end
 
@@ -103,47 +106,45 @@ function TIC()
   spr(240,0+bxoffset,127)
   print("itwisecreative.com",9+bxoffset,129,0)
 
-  -- draw game board
-  for y=1,6 do
-    for x=1,13 do
-      cell=grid[y][x]
-      draw_cell(cell) -- todo (?): y,x is redundant between grid data and cell data...
-      -- global anim update
-      if f%7==0 then
-        cell.a=cell.a+1
-        if cell.a>6 then cell.a=1 end
+  -- draw game board (grid style so empty can be dot)
+  for y=1,gsy do
+    for x=1,gsx do
+      cell=get_cell_at(x,y)
+      if cell then
+        draw_cell(cell)
+      else
+        draw_empty(x,y)
       end
-      --
     end
   end
 
   -- controls
   local mx,my,mb=mouse()
-  if moving.f==0 then
+  if move.f==0 then
     -- Controller/Arrows, WASD
     if btnp(0) or keyp(23) then
-      moving.x=0
-      moving.y=-1
-      moving.f=f
-      moving.n=moving.n+1
+      move.x=0
+      move.y=-1
+      move.f=f
+      move.n=move.n+1
     end
     if btnp(1) or keyp(19) then
-      moving.x=0
-      moving.y=1
-      moving.f=f
-      moving.n=moving.n+1
+      move.x=0
+      move.y=1
+      move.f=f
+      move.n=move.n+1
     end
     if btnp(2) or keyp(1) then
-      moving.x=-1
-      moving.y=0
-      moving.f=f
-      moving.n=moving.n+1
+      move.x=-1
+      move.y=0
+      move.f=f
+      move.n=move.n+1
     end
     if btnp(3) or keyp(4) then
-      moving.x=1
-      moving.y=0
-      moving.f=f
-      moving.n=moving.n+1
+      move.x=1
+      move.y=0
+      move.f=f
+      move.n=move.n+1
     end
     -- Swipe
     local mdir={
@@ -181,10 +182,10 @@ function TIC()
         swipe.y=my
       else
         if absmovedx>=swipeminmove or absmovedy>=swipeminmove then
-          moving.x=mdir.x
-          moving.y=mdir.y
-          moving.f=f
-          moving.n=moving.n+1
+          move.x=mdir.x
+          move.y=mdir.y
+          move.f=f
+          move.n=move.n+1
         end
       end
       swipe.b=mb
@@ -206,13 +207,15 @@ function TIC()
       end
     end
   else
-    if f-moving.f>=30 then
-      moving.x=0
-      moving.y=0
-      moving.f=0
+    if f-move.f>=30 then
+      move.x=0
+      move.y=0
+      move.f=0
+      move.p=false
+      reset_cell_processed()
     end
   end
-  print(moving.x..','..moving.y..','..moving.n,150,1,0)
+  print(move.x..','..move.y..','..move.n,150,1,0)
   print(mx..','..my..','..bint(mb),150,10,0)
   print(swipe.x..','..swipe.y..','..bint(swipe.b),150,17,0)
 
@@ -220,18 +223,62 @@ function TIC()
   -- arrows
   if f%arrowblink[2]==0 then arrowblink[1]= not arrowblink[1] end
   if arrowblink[1] then
-    if moving.y==-1 then
+    if move.y==-1 then
       draw_arrow('up')
     end
-    if moving.y==1 then
+    if move.y==1 then
       draw_arrow('down')
     end
-    if moving.x==-1 then
+    if move.x==-1 then
       draw_arrow('left')
     end
-    if moving.x==1 then
+    if move.x==1 then
       draw_arrow('right')
     end
+  end
+
+  -- calcualte movement
+  if move.f>0 and not move.p then
+    for k,cell in pairs(cells) do
+      -- wbc
+      if cell.t=='wbc' then
+        if not cell.p then
+          local tx,ty=get_target_loc(cell)
+          local target=get_cell_at(tx,ty)
+          if not target then
+            cell.x=tx
+            cell.y=ty
+            cell.p=true
+          end
+        end
+      end
+    end
+    trace('----')
+    move.p=true
+  end
+
+end
+
+function get_cell_at(x,y)
+  for k,cell in pairs(cells) do
+    if cell.x==x and cell.y==y then return cell end
+  end
+  return false
+end
+
+function get_target_loc(cell)
+  local tx=cell.x+move.x
+  if tx<1 then tx=gsx end
+  if tx>gsx then tx=1 end
+  local ty=cell.y+move.y
+  if ty<1 then ty=gsy end
+  if ty>gsy then ty=1 end
+  return tx, ty
+end
+
+function reset_cell_processed()
+  for k,cell in pairs(cells) do
+    cell.p=false
   end
 end
 
@@ -242,7 +289,7 @@ function gen_cell(t,x,y)
     y=y,
     r=rint(0,3),
     f=rint(0,3),
-    p=0, -- "processed" -- i think wbcs will need at least 2 checks per frame... not sure atm...
+    p=false, -- "processed" -- i think wbcs will need at least 2 checks per frame... not sure atm...
     a=1, -- anim, all use 6 frames (same anims...)
     s={ -- shield -> (wbc and bacteria)
       {1,1,1},
@@ -254,6 +301,13 @@ function gen_cell(t,x,y)
   if t=='virus' then e.f=0 end
   --
   return e
+end
+
+function draw_empty(x,y)
+  local sx=x*16
+  local sy=y*16+10
+  local sprnum=96
+  spr(sprnum,sx,sy,-1,1,0,0,2,2)
 end
 
 function draw_cell(c)
@@ -272,9 +326,6 @@ function draw_cell(c)
   end
   if c.t=='virus' then
     sprnum=64
-  end
-  if c.t=='empty' then
-    sprnum=96
   end
   if c.t=='blocked' then
     sprnum=128
@@ -318,6 +369,12 @@ function draw_cell(c)
       pix(sx+9,sy+10,shieldcolor)
     end
   end
+  -- global anim update
+  if f%7==0 then
+    c.a=c.a+1
+    if c.a>6 then c.a=1 end
+  end
+  --
 end
 
 function draw_arrow(dir)
