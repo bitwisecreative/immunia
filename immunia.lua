@@ -38,13 +38,14 @@ gsy=6
 cells={}
 
 -- move
-movespeed=15
+movespeed=7
 move={
   n=0,
   p=false, -- processed
   x=0,
   y=0,
-  f=0
+  f=0,
+  d={} -- destroy cell ids
 }
 
 arrowblink={false,2} -- visible, frame switch
@@ -69,6 +70,7 @@ testmaps={
   }
 }
 testmap='wbc'
+testmap=false
 
 -- INIT
 function BOOT()
@@ -244,10 +246,7 @@ function TIC()
     end
   else
     if f-move.f>=movespeed then
-      move.x=0
-      move.y=0
-      move.f=0
-      move.p=false
+      reset_move()
       reset_cell_processed()
     end
   end
@@ -278,16 +277,17 @@ function TIC()
     -- first, process wbc movement... multiple passes...
     local wbcs={}
     for k,cell in pairs(cells) do
-      if cell.t=='wbc' then table.insert(wbcs,cell) end
+      if cell.t=='wbc' then table.insert(wbcs,{cell,k}) end
     end
     local limit=0;
-    while not all_cells_processed(wbcs) do
+    while not all_wbcs_processed(wbcs) do
       limit=limit+1
       if limit>20 then
         trace('while loop limit broken...')
         break
       end
-      for k,cell in pairs(wbcs) do
+      for k,wbc in pairs(wbcs) do
+        local cell=wbc[1]
         if cell.p==0 then
           local tx,ty=get_target_loc(cell.x,cell.y)
           local target=get_cell_at(tx,ty)
@@ -305,23 +305,29 @@ function TIC()
       end
     end
     -- next, process attacking...
-    for k,cell in pairs(wbcs) do
+    for k,wbc in pairs(wbcs) do
+      local cell=wbc[1]
+      local cell_index=wbc[2]
       if cell.p==2 then
         local tx,ty=get_target_loc(cell.x,cell.y)
         local target,target_index=get_cell_at(tx,ty)
         if target then
           -- viruses (easy, just kill them...)
           if target.t=='virus' then
-            table.remove(cells,target_index)
+            table.insert(move.d,target_index)
             cell.p=3
           end
           -- bacteria
           if target.t=='bacteria' then
-            process_attack(cell,k,target,target_index)
+            process_attack(cell,cell_index,target,target_index)
             cell.p=3
           end
         end
       end
+    end
+    -- next, process cells to destroy
+    for i=#move.d,1,-1 do -- REVERSE!!!!!!!!!!!!!!
+      table.remove(cells,move.d[i])
     end
     -- move processed...
     move.p=true
@@ -330,7 +336,57 @@ function TIC()
 end
 
 function process_attack(wbc,wbc_index,bacteria,bacteria_index)
-  -- todo...
+  trace('ATTACK: '..wbc_index..'->'..bacteria_index)
+  -- shield priority is cross first, then diagonal
+  -- diagonal priority is left to right, top to bottom
+  -- attack (wbc) / defend (bacteria) vectors
+  local av={}
+  local dv={}
+  if move.x<0 then
+    av={{1,2},{1,1},{1,3},{2,2}}
+    dv={{3,2},{3,1},{3,3},{2,2}}
+  end
+  if move.x>0 then
+    dv={{1,2},{1,1},{1,3},{2,2}}
+    av={{3,2},{3,1},{3,3},{2,2}}
+  end
+  if move.y<0 then
+    av={{2,1},{1,1},{1,3},{2,2}}
+    dv={{2,3},{1,3},{3,3},{2,2}}
+  end
+  if move.y>0 then
+    dv={{2,1},{1,1},{1,3},{2,2}}
+    av={{2,3},{1,3},{3,3},{2,2}}
+  end
+  -- debug
+  trace('AV: '..tdump(av,true))
+  trace('DV: '..tdump(dv,true))
+  -- pwn n00bs
+  for ak,vec in pairs(av) do
+    if wbc.s[vec[1]][vec[2]]==1 then
+      trace('AV REM: '..tdump(vec,true))
+      wbc.s[vec[1]][vec[2]]=0
+      break
+    end
+  end
+  for ak,vec in pairs(dv) do
+    if bacteria.s[vec[1]][vec[2]]==1 then
+      trace('DV REM: '..tdump(vec,true))
+      bacteria.s[vec[1]][vec[2]]=0
+      break
+    end
+  end
+  -- who died!?
+  trace('WBC N: '..wbc.s[2][2])
+  if wbc.s[2][2]==0 then
+    trace('wbc dead... '..wbc_index)
+    table.insert(move.d,wbc_index)
+  end
+  trace('BAC N: '..bacteria.s[2][2])
+  if bacteria.s[2][2]==0 then
+    trace('bacteria dead... '..bacteria_index)
+    table.insert(move.d,bacteria_index)
+  end
 end
 
 function get_cell_at(x,y)
@@ -360,11 +416,20 @@ function get_reverse_target_loc(x,y)
   return tx, ty
 end
 
-function all_cells_processed(c)
-  for k,cell in pairs(c) do
+function all_wbcs_processed(wbcs)
+  for k,wbc in pairs(wbcs) do
+    local cell=wbc[1]
     if cell.p==0 then return false end
   end
   return true
+end
+
+function reset_move()
+  move.x=0
+  move.y=0
+  move.f=0
+  move.p=false
+  move.d={}
 end
 
 function reset_cell_processed()
@@ -485,6 +550,24 @@ end
 -- bool to int
 function bint(b)
   return b and 1 or 0
+end
+
+-- dump table...
+function tdump(t,no_keys)
+  out='{'
+  for k,v in pairs(t) do
+    if type(v)=='table' then
+      out=out..tdump(v,no_keys)
+    else
+      if no_keys then
+        out=out..v..', '
+      else
+        out=out..k..':'..v..', '
+      end
+    end
+  end
+  out=string.sub(out,0,#out-2)..'}, '
+  return out
 end
 
 
