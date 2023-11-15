@@ -60,7 +60,7 @@ swipe={
 -- test maps...
 testmaps={
   wbc={
-    {0,0,0,0,0,1,0,0,0,0,0,0,0},
+    {2,3,0,0,0,1,0,0,0,0,0,0,0},
     {0,0,0,0,0,1,0,0,0,0,0,0,0},
     {0,0,4,1,1,1,1,1,4,0,0,0,0},
     {0,0,0,0,0,1,0,0,0,0,0,0,0},
@@ -288,30 +288,54 @@ function TIC()
         break
       end
       for k,cell in pairs(wbcs) do
-        if not cell.p then
+        if cell.p==0 then
           local tx,ty=get_target_loc(cell.x,cell.y)
           local target=get_cell_at(tx,ty)
           if not target then -- empty -- can move (wbc can only move when empty...)
             -- move wbc
             cell.x=tx
             cell.y=ty
-            cell.p=true
+            cell.p=1
           else
-            if target.t~='wbc' or target.p then -- if target is not wbc, or wbc is processed...
-              cell.p=true
+            if target.t~='wbc' or target.p>0 then -- if target is not wbc, or wbc is processed...
+              cell.p=2
             end
           end
         end
       end
     end
-    move.p=true -- move processed...
+    -- next, process attacking...
+    for k,cell in pairs(wbcs) do
+      if cell.p==2 then
+        local tx,ty=get_target_loc(cell.x,cell.y)
+        local target,target_index=get_cell_at(tx,ty)
+        if target then
+          -- viruses (easy, just kill them...)
+          if target.t=='virus' then
+            table.remove(cells,target_index)
+            cell.p=3
+          end
+          -- bacteria
+          if target.t=='bacteria' then
+            process_attack(cell,k,target,target_index)
+            cell.p=3
+          end
+        end
+      end
+    end
+    -- move processed...
+    move.p=true
   end
 
 end
 
+function process_attack(wbc,wbc_index,bacteria,bacteria_index)
+  -- todo...
+end
+
 function get_cell_at(x,y)
   for k,cell in pairs(cells) do
-    if cell.x==x and cell.y==y then return cell end
+    if cell.x==x and cell.y==y then return cell,k end
   end
   return false
 end
@@ -338,14 +362,14 @@ end
 
 function all_cells_processed(c)
   for k,cell in pairs(c) do
-    if not cell.p then return false end
+    if cell.p==0 then return false end
   end
   return true
 end
 
 function reset_cell_processed()
   for k,cell in pairs(cells) do
-    cell.p=false
+    cell.p=0
   end
 end
 
@@ -357,7 +381,7 @@ function gen_cell(t,x,y)
     r=rint(0,3),
     f=rint(0,3),
     a=1, -- anim, all use 6 frames (same anims...)
-    p=false, -- processed (move)
+    p=0, -- (move) processed id (0=not processed,1=moved,2=cannot move,3=attacked)
     s={ -- shield -> (wbc and bacteria)
       {1,1,1},
       {1,1,1},
@@ -380,6 +404,7 @@ end
 function draw_cell(c)
   local sx=c.x*16 -- this works as-is because of the margin...
   local sy=c.y*16+10
+  -- todo: move anims?
   local sprnum=0 -- wbc
   local drawshield=false
   local shieldcolor=1
