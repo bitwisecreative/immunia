@@ -67,10 +67,27 @@ testmaps={
     {0,0,0,0,0,1,0,0,0,0,0,0,0},
     {0,0,0,0,0,1,0,0,0,0,0,0,0},
     {0,0,0,0,0,0,0,0,0,0,0,0,0},
+  },
+  virus={
+    {0,0,0,0,0,0,0,0,0,0,0,0,0},
+    {0,0,0,0,0,0,0,0,0,0,0,0,0},
+    {0,0,0,0,0,0,3,0,0,0,0,0,0},
+    {0,0,0,0,0,0,0,0,0,0,0,0,0},
+    {0,0,0,0,0,0,0,0,0,0,0,0,0},
+    {0,0,0,0,0,0,0,0,0,0,0,0,0},
   }
 }
 testmap='wbc'
+testmap='virus'
 testmap=false
+
+-- virus speed (when clones, moves every turn)
+virusspeed=3
+virusin=virusspeed
+
+-- bacteria speed (division)
+bacteriaspeed=3
+bacteriain=bacteriaspeed
 
 -- INIT
 function BOOT()
@@ -122,6 +139,9 @@ function BOOT()
     end
   end
 
+  -- tiny font
+  tf=tfont:new()
+
 end
 
 -- WHAMMY!
@@ -137,12 +157,12 @@ function TIC()
 
   -- title
   -- print(text x=0 y=0 color=15 fixed=false scale=1 smallfont=false) -> width`
-  print("Immunia",16,5,0,false,3)
+  print("Immunia",5,5,0,false,3)
 
   -- ;)
-  bxoffset=16
-  spr(240,0+bxoffset,127)
-  print("itwisecreative.com",9+bxoffset,129,0)
+  bxoffset=4
+  spr(240,0+bxoffset,125)
+  print("itwisecreative.com",9+bxoffset,127,0)
 
   -- draw game board (grid style so empty can be dot)
   for y=1,gsy do
@@ -250,9 +270,16 @@ function TIC()
       reset_cell_processed()
     end
   end
-  print(move.x..','..move.y..','..move.n,150,1,0)
-  print(mx..','..my..','..bint(mb),150,10,0)
-  print(swipe.x..','..swipe.y..','..bint(swipe.b),150,17,0)
+  -- virus speed
+  print("Virus Clones: "..numpad(virusin,2),151,7,0)
+  print("Bacteria Division: "..numpad(bacteriain,2),129,15,0)
+  -- debug
+  local debugx=150
+  local debugy=124
+  local debugc=3
+  tf:print('move: '..move.x..','..move.y..','..move.n,debugx,debugy,debugc)
+  tf:print('mouse: '..mx..','..my..','..bint(mb),debugx,debugy+4,debugc)
+  tf:print('swipe: '..swipe.x..','..swipe.y..','..bint(swipe.b),debugx,debugy+8,debugc)
 
   -- move arrows
   -- arrows
@@ -274,6 +301,11 @@ function TIC()
 
   -- calculate move
   if move.f>0 and not move.p then
+    -- virus and bacteria speed
+    virusin=virusin-1
+    if virusin<0 then virusin=virusspeed end
+    bacteriain=bacteriain-1
+    if bacteriain<0 then bacteriain=bacteriaspeed end
     -- first, process wbc movement... multiple passes...
     local wbcs={}
     for k,cell in pairs(cells) do
@@ -283,7 +315,7 @@ function TIC()
     while not all_wbcs_processed(wbcs) do
       limit=limit+1
       if limit>20 then
-        trace('while loop limit broken...')
+        trace('!!!WBC MOVE WHILE LOOP LIMIT BROKEN!!!')
         break
       end
       for k,wbc in pairs(wbcs) do
@@ -325,9 +357,44 @@ function TIC()
         end
       end
     end
-    -- next, process cells to destroy
+    -- next, process viruses
+    -- if they are next to bacteria (cross) then they will try to duplicate (open cell around bacteria) if virusin==0
+    -- otherwise they will try to move randomly :P (every turn)
+    for k,cell in pairs(cells) do
+      if cell.t=='virus' then
+        local neighbs=get_cross_neighbors(cell.x,cell.y)
+        local attached_bac=false
+        for nk,ncell in pairs(neighbs) do
+          if ncell and ncell.t=='bacteria' then
+            attached_bac=ncell
+            break
+          end
+        end
+        if attached_bac then
+          local o=get_open_cells_from(attached_bac.x,attached_bac.y)
+          if #o>0 then
+            -- add new virus at first open cell...
+            if virusin==0 then
+              local nv=gen_cell('virus',o[1][1],o[1][2])
+              table.insert(cells,nv)
+            end
+          end
+        else
+          -- move virus to random location
+          local o=get_open_cells_from(cell.x,cell.y)
+          if #o>0 then
+            tshuffle(o)
+            cell.x=o[1][1]
+            cell.y=o[1][2]
+          end
+        end
+      end
+    end
+    -- process cells to destroy
     for i=#move.d,1,-1 do -- REVERSE!!!!!!!!!!!!!!
-      table.remove(cells,move.d[i])
+      if cells[move.d[i]]~=nil then
+        table.remove(cells,move.d[i])
+      end
     end
     -- move processed...
     move.p=true
@@ -335,8 +402,48 @@ function TIC()
 
 end
 
+function get_open_cells_from(x,y)
+  -- clockwise starting at 12
+  local vecs={
+    {x,y-1},
+    {x+1,y-1},
+    {x+1,y},
+    {x+1,y+1},
+    {x,y+1},
+    {x-1,y+1},
+    {x-1,y},
+    {x-1,y-1}
+  }
+  -- open cells...
+  local o={}
+  for k,v in pairs(vecs) do
+    -- stay in grid...
+    if v[1]<1 then v[1]=gsx end
+    if v[1]>gsx then v[1]=1 end
+    if v[2]<1 then v[2]=gsy end
+    if v[2]>gsy then v[2]=1 end
+    --
+    local c=get_cell_at(v[1],v[2])
+    if not c then table.insert(o,vecs[k]) end
+  end
+  return o
+end
+
+function get_cross_neighbors(x,y)
+  local n={}
+  local vecs={
+    {x,y-1},{x,y+1},{x-1,y},{x+1,y}
+  }
+  for k,v in pairs(vecs) do
+    local cell=get_cell_at(v[1],v[2])
+    if cell then table.insert(n,cell) end
+  end
+  --
+  return n
+end
+
 function process_attack(wbc,wbc_index,bacteria,bacteria_index)
-  trace('ATTACK: '..wbc_index..'->'..bacteria_index)
+  --trace('ATTACK: '..wbc_index..'->'..bacteria_index)
   -- shield priority is cross first, then diagonal
   -- diagonal priority is left to right, top to bottom
   -- attack (wbc) / defend (bacteria) vectors
@@ -359,32 +466,32 @@ function process_attack(wbc,wbc_index,bacteria,bacteria_index)
     av={{2,3},{1,3},{3,3},{2,2}}
   end
   -- debug
-  trace('AV: '..tdump(av,true))
-  trace('DV: '..tdump(dv,true))
+  --trace('AV: '..tdump(av,true))
+  --trace('DV: '..tdump(dv,true))
   -- pwn n00bs
   for ak,vec in pairs(av) do
     if wbc.s[vec[1]][vec[2]]==1 then
-      trace('AV REM: '..tdump(vec,true))
+      --trace('AV REM: '..tdump(vec,true))
       wbc.s[vec[1]][vec[2]]=0
       break
     end
   end
   for ak,vec in pairs(dv) do
     if bacteria.s[vec[1]][vec[2]]==1 then
-      trace('DV REM: '..tdump(vec,true))
+      --trace('DV REM: '..tdump(vec,true))
       bacteria.s[vec[1]][vec[2]]=0
       break
     end
   end
   -- who died!?
-  trace('WBC N: '..wbc.s[2][2])
+  --trace('WBC N: '..wbc.s[2][2])
   if wbc.s[2][2]==0 then
-    trace('wbc dead... '..wbc_index)
+    --trace('wbc dead... '..wbc_index)
     table.insert(move.d,wbc_index)
   end
-  trace('BAC N: '..bacteria.s[2][2])
+  --trace('BAC N: '..bacteria.s[2][2])
   if bacteria.s[2][2]==0 then
-    trace('bacteria dead... '..bacteria_index)
+    --trace('bacteria dead... '..bacteria_index)
     table.insert(move.d,bacteria_index)
   end
 end
@@ -453,9 +560,6 @@ function gen_cell(t,x,y)
       {1,1,1}
     }
   }
-  -- virus only rotates...
-  if t=='virus' then e.f=0 end
-  --
   return e
 end
 
@@ -570,6 +674,97 @@ function tdump(t,no_keys)
   return out
 end
 
+-- shuffle table in place
+function tshuffle(t)
+  for i = #t, 2, -1 do
+    local j = math.random(i)
+    t[i], t[j] = t[j], t[i]
+  end
+end
+
+-- left pad numbers with zero
+function numpad(num,width)
+  local s=tostring(num)
+  while #s<width do
+    s='0'..s
+  end
+  return s
+end
+
+-- Tiny Font (3x3)
+function ctxtx(str)
+  return math.floor((sw/2)-(#str*4)/2) -- screen center x coord for text
+end
+function split(str,sep)
+ local t={}
+ local s=''
+ if sep == '' then sep=nil end
+ for i=1,#str do
+  local c=string.sub(str,i,i)
+  if sep==nil then
+   table.insert(t,c)
+  else
+   if c==sep then
+    table.insert(t,s)
+    s=''
+   else
+    s=s..c
+   end
+  end
+ end
+ if s~='' then
+  table.insert(t,s)
+ end
+ return t
+end
+tfont={}
+tfont.__index=tfont
+function tfont:new()
+  local this={}
+  local font={{},{},{}}
+  local map={}
+  local st={
+    '000010110111110111111111101111111101100111111111111111110011111101101101101101110110111101100111111111010101010000000111010010001100100010000010000111100101010000',
+    '000111111100101110110100111010010110100111101101111111110010010101101111010010010010011111111001111111010101111111000011100001010010000101000000010000010000101010',
+    '000101111111110111100101101111110101111101101111100001101110010111010111101010011111111001111001111001000000010000100010010010100001001000111010100111000101010000'}
+  for k,v in pairs(st) do
+    for i=1,#v do
+      table.insert(font[k],tonumber(string.sub(v,i,i)))
+    end
+  end
+  this.font=font
+  local sm=' ~1|a~2|A~2|b~3|B~3|c~4|C~4|d~5|D~5|e~6|E~6|f~7|F~7|g~8|G~8|h~9|H~9|i~10|I~10|j~11|J~11|k~12|K~12|l~13|L~13|m~14|M~14|n~15|N~15|o~16|O~16|0~16|p~17|P~17|q~18|Q~18|r~19|R~19|s~20|S~20|5~20|t~21|T~21|u~22|U~22|v~23|V~23|w~24|W~24|x~25|X~25|y~26|Y~26|z~27|Z~27|2~27|1~28|3~29|4~30|6~31|7~32|8~33|9~34|\'~35|"~36|+~37|-~38|.~39|?~40|<~41|[~41|{~41|(~41|>~42|]~42|}~42|)~42|/~43|\\~44|%~45|^~46|_~47|:~48|;~48|,~49|=~50|`~51|#~52|*~53'
+  local sm1=split(sm,'|')
+  for k,v in pairs(sm1) do
+    local sm2=split(v,'~')
+    map[sm2[1]]=sm2[2]
+  end
+  this.map=map
+  setmetatable(this,tfont)
+  return this
+end
+
+function tfont:print(s,x,y,c,o)
+  s=tostring(s)
+  -- lazy...
+  if o~=nil then
+    for sx=-1,1 do
+      for sy=-1,1 do
+        self:print(s,x+sx,y+sy,o)
+      end
+    end
+  end
+  for i=1,#s do
+    local ch=string.sub(s,i,i)
+    local id=self.map[ch] or 54
+    local xs=id*3-2
+    for cy=1,3 do
+      for cx=1,3 do
+        if self.font[cy][cx-1+xs]==1 then pix(x+((i-1)*4)+cx-1,y+cy-1,c) end
+      end
+    end
+  end
+end
 
 
 -- <TILES>
