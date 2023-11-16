@@ -360,6 +360,7 @@ function TIC()
     -- next, process viruses
     -- if they are next to bacteria (cross) then they will try to duplicate (open cell around bacteria) if virusin==0
     -- otherwise they will try to move randomly :P (every turn)
+    local add_viruses={}
     for k,cell in pairs(cells) do
       if cell.t=='virus' then
         local neighbs=get_cross_neighbors(cell.x,cell.y)
@@ -376,7 +377,7 @@ function TIC()
             -- add new virus at first open cell...
             if virusin==0 then
               local nv=gen_cell('virus',o[1][1],o[1][2])
-              table.insert(cells,nv)
+              table.insert(add_viruses,nv)
             end
           end
         else
@@ -390,6 +391,26 @@ function TIC()
         end
       end
     end
+    for k,v in pairs(add_viruses) do
+      table.insert(cells,v)
+    end
+    -- next, process bacteria (divide if bacteriain==0) -- shield is cloned
+    local add_bacteria={}
+    for k,cell in pairs(cells) do
+      if cell.t=='bacteria' then
+        if bacteriain==0 then
+          local o=get_open_cells_from(cell.x,cell.y)
+          if #o>0 then
+            local nb=gen_cell('bacteria',o[1][1],o[1][2])
+            clone_shield(cell,nb)
+            table.insert(add_bacteria,nb)
+          end
+        end
+      end
+    end
+    for k,v in pairs(add_bacteria) do
+      table.insert(cells,v)
+    end
     -- process cells to destroy
     for i=#move.d,1,-1 do -- REVERSE!!!!!!!!!!!!!!
       if cells[move.d[i]]~=nil then
@@ -400,6 +421,14 @@ function TIC()
     move.p=true
   end
 
+end
+
+function clone_shield(from,to)
+  for y=1,3 do
+    for x=1,3 do
+      to.s[y][x]=from.s[y][x]
+    end
+  end
 end
 
 function get_open_cells_from(x,y)
