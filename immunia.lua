@@ -87,14 +87,15 @@ testmaps={
 }
 testmap='wbc'
 testmap='virus'
+-- you can do testmap='random' also...
 testmap=false
 
 -- virus speed (when clones, moves every turn)
-virusspeed=3
+virusspeed=11
 virusin=virusspeed
 
 -- bacteria speed (division)
-bacteriaspeed=3
+bacteriaspeed=23
 bacteriain=bacteriaspeed
 
 -- INIT
@@ -107,57 +108,39 @@ function BOOT()
   tf=tfont:new()
 
   -- level gen dev...
-  local lg=levelgen(1)
-  virusspeed=lg['virusspeed']
-  virusin=virusspeed
-  bacteriaspeed=lg['bacteriaspeed']
-  bacteriain=bacteriaspeed
-  testmaps['levelgen']=lg['map']
-  testmap='levelgen'
-
-  testmap='debug'
+  if not testmap then
+    local lg=levelgen(1)
+    virusspeed=lg['virusspeed']
+    virusin=virusspeed
+    bacteriaspeed=lg['bacteriaspeed']
+    bacteriain=bacteriaspeed
+  end
 
   -- populate (grid style)
-  for y=1,gsy do
-    for x=1,gsx do
-      -- test map
-      if testmap then
-        local r=testmaps[testmap][y][x]
+  if testmap then
+    for y=1,gsy do
+      for x=1,gsx do
+        local r=0
+        if testmap=='random' then
+          if rint(1,5)==1 then -- chance for cell on random testmap
+            r=rint(1,4)
+          end
+        else
+          r=testmaps[testmap][y][x]
+        end
         if r>0 then
           if r==1 then t='wbc' end
           if r==2 then t='bacteria' end
           if r==3 then t='virus' end
           if r==4 then t='blocked' end
           local cell=gen_cell(t,x,y)
-          -- random shield degen
+          -- random shield
           for y=1,3 do
             for x=1,3 do
               cell.s[x][y]=rint(0,1)
             end
           end
-          -- but nucleus always 1
-          cell.s[2][2]=1
-          -- append
-          table.insert(cells,cell)
-        end
-      else
-        -- chance of cell
-        if rint(1,5)==1 then
-          local r=rint(1,4)
-          if r==1 then t='wbc' end
-          if r==2 then t='bacteria' end
-          if r==3 then t='virus' end
-          if r==4 then t='blocked' end
-          local cell=gen_cell(t,x,y)
-          -- random shield degen
-          for y=1,3 do
-            for x=1,3 do
-              cell.s[x][y]=rint(0,1)
-            end
-          end
-          -- but nucleus always 1
-          cell.s[2][2]=1
-          -- append
+          cell.s[2][2]=1 -- nucleus always 1
           table.insert(cells,cell)
         end
       end
@@ -447,7 +430,9 @@ function TIC()
 end
 
 function levelgen(level)
+  trace(level)
   local lg={
+    -- todo: these speeds variable? or stay the same every level? not sure...
     virusspeed=9,
     bacteriaspeed=21,
     map={
@@ -459,24 +444,39 @@ function levelgen(level)
       {0,0,0,0,0,0,0,0,0,0,0,0,0},
     }
   }
+
   -- How?
   -- higher level means...
     -- more cells on the screen
+    -- more shields (complexity)
+    -- more moves
     -- more viruses
     -- less "extra" shields
+  -- gen steps
+    -- determine total number of each cell types and shields
+    -- build backwards (?...)
 
-  -- unattack random dir
-  --
+  local numcells={
+    wbc=1+math.ceil(level/10)+rint(0,math.ceil(level/33)),
+    bacteria=1+math.ceil(level/10)+rint(0,math.ceil(level/33)),
+    virus=1+math.ceil(level/10)+rint(0,math.ceil(level/33)),
+    blocked=1+math.ceil(level/10)+rint(0,math.ceil(level/33))
+  }
 
-  for y=1,gsy do
-    for x=1,gsx do
-      -- chance of cell
-      if rint(1,5)==1 then
-        local r=rint(1,4)
-        lg['map'][y][x]=r
+  for type,numgen in pairs(numcells) do
+    local added=0
+    while added<numgen do
+      local x=rint(1,gsx)
+      local y=rint(1,gsy)
+      if lg['map'][y][x]==0 then
+        local cell=gen_cell(type,x,y)
+        lg['map'][y][x]=1
+        added=added+1
+        table.insert(cells,cell)
       end
     end
   end
+
   return lg
 end
 
@@ -641,9 +641,9 @@ function gen_cell(t,x,y)
     a=1, -- anim, all use 6 frames (same anims...)
     p=0, -- (move) processed id (0=not processed,1=moved,2=cannot move,3=attacked)
     s={ -- shield -> (wbc and bacteria)
-      {1,1,1},
-      {1,1,1},
-      {1,1,1}
+      {0,0,0},
+      {0,1,0},
+      {0,0,0}
     }
   }
   return e
