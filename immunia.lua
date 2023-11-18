@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global, lowercase-global
 -- title:   Immunia
 -- author:  Bitwise Creative
 -- desc:    Simple 1-bit immunity puzzle game
@@ -16,7 +17,7 @@ function opengamemenu()
 end
 GameMenu={opengamemenu}
 function MENU(i)
- GameMenu[i+1]()
+  GameMenu[i+1]()
 end
 
 
@@ -25,6 +26,9 @@ math.randomseed(tstamp())
 
 -- int won't overflow like pico8...
 f=0
+
+-- level
+level=1
 
 -- screen size
 sw=240
@@ -109,7 +113,17 @@ function BOOT()
 
   -- level gen dev...
   if not testmap then
-    local lg=levelgen(1)
+    level=rint(1,99)
+    -- test: make sure level gen doesnt get locked...
+    -- local lg
+    -- for lev=1,99 do
+    --   for i=1,1000 do
+    --     cells={}
+    --     lg=levelgen(lev)
+    --   end
+    -- end
+    lg=levelgen(level)
+    --
     virusspeed=lg['virusspeed']
     virusin=virusspeed
     bacteriaspeed=lg['bacteriaspeed']
@@ -279,12 +293,14 @@ function TIC()
   print("Virus Clones: "..numpad(virusin,2),151,7,0)
   print("Bacteria Division: "..numpad(bacteriain,2),129,15,0)
   -- debug
-  local debugx=150
+  local debugx=160
   local debugy=124
   local debugc=3
   tf:print('move: '..move.x..','..move.y..','..move.n,debugx,debugy,debugc)
   tf:print('mouse: '..mx..','..my..','..bint(mb),debugx,debugy+4,debugc)
   tf:print('swipe: '..swipe.x..','..swipe.y..','..bint(swipe.b),debugx,debugy+8,debugc)
+
+  tf:print('level: '..level,debugx-40,debugy,debugc)
 
   -- move arrows
   -- arrows
@@ -430,11 +446,11 @@ function TIC()
 end
 
 function levelgen(level)
-  trace(level)
   local lg={
     -- todo: these speeds variable? or stay the same every level? not sure...
     virusspeed=9,
     bacteriaspeed=21,
+    -- todo: is this map useless? Why not just use the virtual grid created by the cells table?
     map={
       {0,0,0,0,0,0,0,0,0,0,0,0,0},
       {0,0,0,0,0,0,0,0,0,0,0,0,0},
@@ -449,26 +465,40 @@ function levelgen(level)
   -- higher level means...
     -- more cells on the screen
     -- more shields (complexity)
-    -- more moves
+    -- more moves (same as shields?)
     -- more viruses
     -- less "extra" shields
   -- gen steps
     -- determine total number of each cell types and shields
     -- build backwards (?...)
+    -- or simpler solution like 2x wbc shields vs bacteria shields?
 
   local numcells={
     wbc=1+math.ceil(level/10)+rint(0,math.ceil(level/33)),
     bacteria=1+math.ceil(level/10)+rint(0,math.ceil(level/33)),
-    virus=1+math.ceil(level/10)+rint(0,math.ceil(level/33)),
-    blocked=1+math.ceil(level/10)+rint(0,math.ceil(level/33))
+    virus=math.floor(level/30)+rint(0,math.ceil(level/33))
   }
+  numblocked=math.floor(level/10)+rint(0,math.ceil(level/33))
+
+  -- placed blocked cells first to avoid encased cells (by checking cell_is_fully_blocked before placement)
+  local added=0
+  while added<numblocked do
+    local x=rint(1,gsx)
+    local y=rint(1,gsy)
+    if lg['map'][y][x]==0 then
+      local cell=gen_cell('blocked',x,y)
+      lg['map'][y][x]=1
+      added=added+1
+      table.insert(cells,cell)
+    end
+  end
 
   for type,numgen in pairs(numcells) do
-    local added=0
+    added=0
     while added<numgen do
       local x=rint(1,gsx)
       local y=rint(1,gsy)
-      if lg['map'][y][x]==0 then
+      if lg['map'][y][x]==0 and not cell_is_fully_blocked(x,y) then -- doesn't work for cases other than single cell sized blockages...
         local cell=gen_cell(type,x,y)
         lg['map'][y][x]=1
         added=added+1
@@ -477,7 +507,50 @@ function levelgen(level)
     end
   end
 
-  return lg
+  -- simple solution wbc {shield_ratio} shields of bacteria (?...)
+  -- todo: seems to work okay, but it's not well-built. Should really look into the more complex and tight backwards level crafting...
+  -- BUG: debug issue when wbc_shield_runs is 0 and the level looks jacked up...
+  local shield_ratio=1.3
+  local bacteria_max_shields=math.ceil(level/17)
+  local wbc_max_shields=math.ceil(bacteria_max_shields*shield_ratio)
+  if wbc_max_shields>8 then wbc_max_shields=8 end
+  -- populate all bacteria shields first to get total count
+  local total_bacteria_shields=0
+  for k,cell in pairs(cells) do
+    local min=0
+    local max=bacteria_max_shields
+    if cell.t=='bacteria' then
+      local ns=set_random_shield(cell,min,max)
+      total_bacteria_shields=total_bacteria_shields+ns
+    end
+  end
+  -- try to shield wbcs to at least ratio in iterations of 1000x
+  -- if max <8 then increase max, otherwise increase min
+  local wbc_shield_runs=0
+  local wbc_min_shields=0
+  while get_total_wbc_shields()<total_bacteria_shields*shield_ratio do
+    for i=1,1000 do
+      wbc_shield_runs=wbc_shield_runs+1
+      for k,cell in pairs(cells) do
+        if cell.t=='wbc' then
+          set_random_shield(cell,wbc_min_shields,wbc_max_shields)
+        end
+      end
+      if get_total_wbc_shields()>total_bacteria_shields*shield_ratio then
+        break
+      end
+    end
+    -- increase wbc shield levels...
+    if wbc_max_shields<8 then
+      wbc_max_shields=wbc_max_shields+1
+    elseif wbc_min_shields<8 then
+      wbc_min_shields=wbc_min_shields+1
+    end
+  end
+  trace('WBC SHIELD RUNS: '..wbc_shield_runs)
+
+  --
+  return lg -- useless to return if map is unused and speeds don't matter...
 end
 
 function clone_shield(from,to)
@@ -486,6 +559,60 @@ function clone_shield(from,to)
       to.s[y][x]=from.s[y][x]
     end
   end
+end
+
+function set_random_shield(cell,min,max)
+  -- min,max
+  if not min or min<0 or min>8 then min=0 end
+  if not max or max<0 or max>8 then max=8 end
+  if min>max then min=max end
+  -- reset
+  cell.s={
+    {0,0,0},
+    {0,1,0},
+    {0,0,0}
+  }
+  -- random add to max
+  local n=rint(min,max)
+  local added=0
+  while added<n do
+    local x=rint(1,3)
+    local y=rint(1,3)
+    if not (x==2 and y==2) then
+      if cell.s[y][x]==0 then
+        cell.s[y][x]=1
+        added=added+1
+      end
+    end
+  end
+  return n
+end
+
+function get_total_wbc_shields()
+  local n=0
+  for k,cell in pairs(cells) do
+    if cell and cell.t=='wbc' then
+      for y=1,3 do
+        for x=1,3 do
+          if not (x==2 and y==2) then
+            if cell.s[y][x]==1 then
+              n=n+1
+            end
+          end
+        end
+      end
+    end
+  end
+  return n
+end
+
+function cell_is_fully_blocked(x,y)
+  local n=get_cross_neighbors(x,y)
+  if #n<4 then return false end
+  for k,v in pairs(n) do
+    if v.t~='blocked' then return false end
+  end
+  return true
 end
 
 function get_open_cells_from(x,y)
@@ -521,6 +648,12 @@ function get_cross_neighbors(x,y)
     {x,y-1},{x,y+1},{x-1,y},{x+1,y}
   }
   for k,v in pairs(vecs) do
+    -- looping grid...
+    if v[1]<1 then v[1]=gsx end
+    if v[1]>gsx then v[1]=1 end
+    if v[2]<1 then v[2]=gsy end
+    if v[2]>gsy then v[2]=1 end
+    --
     local cell=get_cell_at(v[1],v[2])
     if cell then table.insert(n,cell) end
   end
