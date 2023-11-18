@@ -75,6 +75,14 @@ testmaps={
     {0,0,0,0,0,0,0,0,0,0,0,0,0},
     {0,0,0,0,0,0,0,0,0,0,0,0,0},
     {0,0,0,0,0,0,0,0,0,0,0,0,0},
+  },
+  debug={
+    {0,0,0,0,0,2,1,2,1,1,0,0,0},
+    {0,0,0,0,0,2,1,2,1,1,0,0,0},
+    {0,0,0,0,0,2,1,2,1,1,0,0,0},
+    {0,0,0,0,0,2,1,2,1,1,0,0,0},
+    {0,0,0,0,0,2,1,2,1,1,0,0,0},
+    {0,0,0,0,0,2,1,2,1,1,0,0,0},
   }
 }
 testmap='wbc'
@@ -91,6 +99,23 @@ bacteriain=bacteriaspeed
 
 -- INIT
 function BOOT()
+
+  -- start bgm
+  --music(0)
+
+  -- tiny font
+  tf=tfont:new()
+
+  -- level gen dev...
+  local lg=levelgen(1)
+  virusspeed=lg['virusspeed']
+  virusin=virusspeed
+  bacteriaspeed=lg['bacteriaspeed']
+  bacteriain=bacteriaspeed
+  testmaps['levelgen']=lg['map']
+  testmap='levelgen'
+
+  testmap='debug'
 
   -- populate (grid style)
   for y=1,gsy do
@@ -138,9 +163,6 @@ function BOOT()
       end
     end
   end
-
-  -- tiny font
-  tf=tfont:new()
 
 end
 
@@ -357,6 +379,11 @@ function TIC()
         end
       end
     end
+    -- process cells to destroy
+    -- (mark them nil, then "clean" the table at the very end of TIC())
+    for k,v in pairs(move.d) do
+      cells[v]=nil
+    end
     -- next, process viruses
     -- if they are next to bacteria (cross) then they will try to duplicate (open cell around bacteria) if virusin==0
     -- otherwise they will try to move randomly :P (every turn)
@@ -411,16 +438,46 @@ function TIC()
     for k,v in pairs(add_bacteria) do
       table.insert(cells,v)
     end
-    -- process cells to destroy
-    for i=#move.d,1,-1 do -- REVERSE!!!!!!!!!!!!!!
-      if cells[move.d[i]]~=nil then
-        table.remove(cells,move.d[i])
-      end
-    end
+    -- clean cells table
+    tclean(cells)
     -- move processed...
     move.p=true
   end
 
+end
+
+function levelgen(level)
+  local lg={
+    virusspeed=9,
+    bacteriaspeed=21,
+    map={
+      {0,0,0,0,0,0,0,0,0,0,0,0,0},
+      {0,0,0,0,0,0,0,0,0,0,0,0,0},
+      {0,0,0,0,0,0,0,0,0,0,0,0,0},
+      {0,0,0,0,0,0,0,0,0,0,0,0,0},
+      {0,0,0,0,0,0,0,0,0,0,0,0,0},
+      {0,0,0,0,0,0,0,0,0,0,0,0,0},
+    }
+  }
+  -- How?
+  -- higher level means...
+    -- more cells on the screen
+    -- more viruses
+    -- less "extra" shields
+
+  -- unattack random dir
+  --
+
+  for y=1,gsy do
+    for x=1,gsx do
+      -- chance of cell
+      if rint(1,5)==1 then
+        local r=rint(1,4)
+        lg['map'][y][x]=r
+      end
+    end
+  end
+  return lg
 end
 
 function clone_shield(from,to)
@@ -711,6 +768,15 @@ function tshuffle(t)
   end
 end
 
+-- removes nils from table
+function tclean(t)
+  for i=#t,1,-1 do -- reverse
+    if t[i]==nil then
+      table.remove(t,i)
+    end
+  end
+end
+
 -- left pad numbers with zero
 function numpad(num,width)
   local s=tostring(num)
@@ -940,7 +1006,16 @@ end
 -- 000:33c033003300430043004300430053005300630063006300730073008300830093009300a300a300a300b300b300c300d300d300e300f300f300f300152000000200
 -- 001:700070007000800080009000a000b000c000d000e000f000f000f000f000f000f000f000f000f000f000f000f000f000f000f000f000f000f000f000461000000000
 -- 012:05000500050015001500250025003500450055006500750085009500a500c500d500f500f500f500f500f500f500f500f500f500f500f500f500f500432000000000
--- 013:06000600060006000600160016002600260036004600660076008600a600b600d600f600f600f600f600f600f600f600f600f600f600f600f600f600432000000000
+-- 013:5600560066006600660076007600860096009600a600b600b600c600d600e600f600f600f600f600f600f600f600f600f600f600f600f600f600f600432000000000
+-- 016:05c00500050015001500150015002500250035004500550075009500a500d500f500f500f500f500f500f500f500f500f500f500f500f500f500f500202000000800
+-- 017:05c00500050015001500150015002500250035004500550075009500a500d500f500f500f500f500f500f500f500f500f500f500f500f500f500f500202000000400
+-- 018:05c00500050015001500150015002500250035004500550075009500a500d500f500f500f500f500f500f500f500f500f500f500f500f500f500f500272000000200
+-- 020:05c00500050015001500150015002507250735074507550775079507a507d507f507f507f507f500f500f500f500f500f500f500f500f500f500f500a02000000800
+-- 021:05c00500050015001500150015002507250735074507550775079507a507d507f507f507f507f500f500f500f500f500f500f500f500f500f500f500a02000000400
+-- 022:05c00500050015001500150015002507250735074507550775079507a507d507f507f507f507f500f500f500f500f500f500f500f500f500f500f500a02000000200
+-- 024:05c0050005001500150015001500250d250d350d450d550d750d950da50dd50df50df50df50df50df50df500f500f500f500f500f500f500f500f500a02000000800
+-- 025:05c0050005001500150015001500250d250d350d450d550d750d950da50dd50df50df50df50df50df500f500f500f500f500f500f500f500f500f500a02000000400
+-- 026:05c0050005001500150015001500250d250d350d450d550d750d950da50dd50df50df50df50df50df50df50df50df500f500f500f500f500f500f500a01000000200
 -- </SFX>
 
 -- <PATTERNS>
