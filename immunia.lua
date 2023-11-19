@@ -1,6 +1,6 @@
 -- title:   Immunia
 -- author:  Bitwise Creative
--- desc:    Simple 1-bit immunity puzzle game
+-- desc:    Simple immunity puzzle game
 -- site:    https://github.com/bitwisecreative/immunia
 -- license: MIT License
 -- version: 0.1
@@ -35,15 +35,15 @@ if level>99 then level=1 end
 sw=240
 sh=136
 
--- cell grid is 13x6 :[]
-gsx=13
-gsy=6
+-- cell grid is 32px 4x4 :[]
+gsx=4
+gsy=4
 
 -- cells
 cells={}
 
 -- move
-movespeed=7
+movespeed=15
 move={
   n=0,
   p=false, -- processed
@@ -66,42 +66,21 @@ swipe={
 -- test maps...
 testmaps={
   wbc={
-    {2,3,0,0,0,1,0,0,0,0,0,0,0},
-    {0,0,0,0,0,1,0,0,0,0,0,0,0},
-    {0,0,4,1,1,1,1,1,4,0,0,0,0},
-    {0,0,0,0,0,1,0,0,0,0,0,0,0},
-    {0,0,0,0,0,1,0,0,0,0,0,0,0},
-    {0,0,0,0,0,0,0,0,0,0,0,0,0},
-  },
-  virus={
-    {0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {0,0,0,0,0,0,3,0,0,0,0,0,0},
-    {0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {0,0,0,0,0,0,0,0,0,0,0,0,0},
+    {2,3,0,0,},
+    {0,0,0,0,},
+    {0,0,4,1,},
+    {0,0,0,0,}
   },
   debug={
-    {0,0,0,0,0,2,1,2,1,1,0,0,0},
-    {0,0,0,0,0,2,1,2,1,1,0,0,0},
-    {0,0,0,0,0,2,1,2,1,1,0,0,0},
-    {0,0,0,0,0,2,1,2,1,1,0,0,0},
-    {0,0,0,0,0,2,1,2,1,1,0,0,0},
-    {0,0,0,0,0,2,1,2,1,1,0,0,0},
+    {0,0,0,0,},
+    {0,0,0,0,},
+    {0,0,0,0,},
+    {0,0,0,0,}
   }
 }
 testmap='wbc'
-testmap='virus'
 -- you can do testmap='random' also...
 testmap=false
-
--- virus speed (when clones, moves every turn)
-virusspeed=11
-virusin=virusspeed
-
--- bacteria speed (division)
-bacteriaspeed=23
-bacteriain=bacteriaspeed
 
 -- INIT
 function BOOT()
@@ -112,10 +91,10 @@ function BOOT()
   -- tiny font
   tf=tfont:new()
 
+  -- difficulty level 1 through 5 stars
   -- level gen dev...
   if not testmap then
-    local lg
-    -- test: make sure level gen doesnt get locked...
+    -- test: make sure level gen doesn't get locked...
     if false then
       for lev=98,99 do
         for i=1,100 do
@@ -124,12 +103,8 @@ function BOOT()
         end
       end
     end
-    lg=levelgen(level)
+    levelgen(level)
     --
-    virusspeed=lg['virusspeed']
-    virusin=virusspeed
-    bacteriaspeed=lg['bacteriaspeed']
-    bacteriain=bacteriaspeed
   end
 
   -- populate (grid style)
@@ -171,19 +146,19 @@ function TIC()
   cls(0)
 
   -- frame
-  rect(0,0,sw,26,1)
-  rect(0,0,16,sh,1)
-  rect(sw-16,0,16,sh,1)
-  rect(0,sh-14,sw,16,1)
+  rect(0,0,112,136,1)
+  rect(0,128,240,8,1)
 
   -- title
   -- print(text x=0 y=0 color=15 fixed=false scale=1 smallfont=false) -> width`
-  print("Immunia",5,5,0,false,3)
+  print("Immunia",3,5,2,false,2)
+  print("Immunia",3,3,10,false,2)
+  print("Immunia",3,4,0,false,2)
 
   -- ;)
-  bxoffset=4
-  spr(240,0+bxoffset,125)
-  print("itwisecreative.com",9+bxoffset,127,0)
+  bxoffset=1
+  spr(240,0+bxoffset,127)
+  print("itwisecreative.com",9+bxoffset,129,0)
 
   -- draw game board (grid style so empty can be dot)
   for y=1,gsy do
@@ -291,18 +266,14 @@ function TIC()
       reset_cell_processed()
     end
   end
-  -- virus speed
-  print("Virus Clones: "..numpad(virusin,2),151,7,0)
-  print("Bacteria Division: "..numpad(bacteriain,2),129,15,0)
   -- debug
-  local debugx=160
-  local debugy=124
-  local debugc=3
-  tf:print('move: '..move.x..','..move.y..','..move.n,debugx,debugy,debugc)
-  tf:print('mouse: '..mx..','..my..','..bint(mb),debugx,debugy+4,debugc)
-  tf:print('swipe: '..swipe.x..','..swipe.y..','..bint(swipe.b),debugx,debugy+8,debugc)
-
-  tf:print('level: '..level,debugx-40,debugy,debugc)
+  local debugx=2
+  local debugy=18
+  local debugc=5
+  tf:print('level: '..level,debugx,debugy,debugc)
+  tf:print('move: '..move.x..','..move.y..','..move.n,debugx,debugy+4,debugc)
+  tf:print('mouse: '..mx..','..my..','..bint(mb),debugx,debugy+8,debugc)
+  tf:print('swipe: '..swipe.x..','..swipe.y..','..bint(swipe.b),debugx,debugy+12,debugc)
 
   -- move arrows
   -- arrows
@@ -802,15 +773,15 @@ function gen_cell(t,x,y)
 end
 
 function draw_empty(x,y)
-  local sx=x*16
-  local sy=y*16+10
+  local sx=(x-1)*32+112
+  local sy=(y-1)*32
   local sprnum=96
-  spr(sprnum,sx,sy,-1,1,0,0,2,2)
+  spr(sprnum,sx,sy,0,2,0,0,2,2)
 end
 
 function draw_cell(c)
-  local sx=c.x*16 -- this works as-is because of the margin...
-  local sy=c.y*16+10
+  local sx=(c.x-1)*32+112
+  local sy=(c.y-1)*32
   -- todo: move anims?
   local sprnum=0 -- wbc
   local drawshield=false
@@ -829,44 +800,57 @@ function draw_cell(c)
   if c.t=='blocked' then
     sprnum=128
   end
-  spr(sprnum+((c.a-1)*2),sx,sy,-1,1,c.f,c.r,2,2)
+  -- spr(id x y colorkey=-1 scale=1 flip=0 rotate=0 w=1 h=1)
+  spr(sprnum+((c.a-1)*2),sx,sy,0,2,c.f,c.r,2,2)
   -- shield
+  local soffset=-1
   if drawshield then
     if c.s[1][1]==1 then
-      pix(sx+6,sy+6,shieldcolor)
-      pix(sx+7,sy+6,shieldcolor)
-      pix(sx+6,sy+7,shieldcolor)
+      -- rect(x y w h color)
+      rect(sx+12+soffset,sy+12+soffset,2,2,shieldcolor)
+      rect(sx+14+soffset,sy+12+soffset,2,2,shieldcolor)
+      rect(sx+12+soffset,sy+14+soffset,2,2,shieldcolor)
     end
     if c.s[2][1]==1 then
-      pix(sx+8,sy+6,shieldcolor)
+      rect(sx+16+soffset,sy+12+soffset,2,2,shieldcolor)
     end
     if c.s[3][1]==1 then
-      pix(sx+9,sy+6,shieldcolor)
-      pix(sx+10,sy+6,shieldcolor)
-      pix(sx+10,sy+7,shieldcolor)
+      rect(sx+18+soffset,sy+12+soffset,2,2,shieldcolor)
+      rect(sx+20+soffset,sy+12+soffset,2,2,shieldcolor)
+      rect(sx+20+soffset,sy+14+soffset,2,2,shieldcolor)
     end
     if c.s[1][2]==1 then
-      pix(sx+6,sy+8,shieldcolor)
+      rect(sx+12+soffset,sy+16+soffset,2,2,shieldcolor)
     end
     if c.s[2][2]==1 then
-      pix(sx+8,sy+8,shieldcolor) -- nucleus? :3
+      rect(sx+16+soffset,sy+16+soffset,2,2,shieldcolor) -- nucleus
+      -- nucleus border
+      local ncolor=2
+      if shieldcolor==1 then ncolor=10 end
+      rect(sx+16+soffset,sy+16+soffset,2,2,shieldcolor) -- nucleus
+      rectb(sx+15+soffset,sy+15+soffset,4,4,ncolor)
+      --rectb(sx+14+soffset,sy+14+soffset,6,6,ncolor)
     end
     if c.s[3][2]==1 then
-      pix(sx+10,sy+8,shieldcolor)
+      rect(sx+20+soffset,sy+16+soffset,2,2,shieldcolor)
     end
     if c.s[1][3]==1 then
-      pix(sx+6,sy+9,shieldcolor)
-      pix(sx+6,sy+10,shieldcolor)
-      pix(sx+7,sy+10,shieldcolor)
+      rect(sx+12+soffset,sy+18+soffset,2,2,shieldcolor)
+      rect(sx+12+soffset,sy+20+soffset,2,2,shieldcolor)
+      rect(sx+14+soffset,sy+20+soffset,2,2,shieldcolor)
     end
     if c.s[2][3]==1 then
-      pix(sx+8,sy+10,shieldcolor)
+      rect(sx+16+soffset,sy+20+soffset,2,2,shieldcolor)
     end
     if c.s[3][3]==1 then
-      pix(sx+10,sy+9,shieldcolor)
-      pix(sx+10,sy+10,shieldcolor)
-      pix(sx+9,sy+10,shieldcolor)
+      rect(sx+20+soffset,sy+18+soffset,2,2,shieldcolor)
+      rect(sx+20+soffset,sy+20+soffset,2,2,shieldcolor)
+      rect(sx+18+soffset,sy+20+soffset,2,2,shieldcolor)
     end
+  end
+  -- draw blocked center
+  if c.t=='blocked' then
+    --rectb(sx+15+soffset,sy+15+soffset,4,4,4)
   end
   -- global anim update
   if f%7==0 then
