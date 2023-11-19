@@ -19,84 +19,86 @@ function MENU(i)
   GameMenu[i+1]()
 end
 
--- pmem map
--- 0 = selected difficulty
--- 1 = d1 wins
--- 2 = d2 wins
--- 3 = d3 wins
--- 4 = d4 wins
--- 5 = d5 wins
--- 6 = d1 losses
--- 7 = d2 losses
--- 8 = d3 losses
--- 9 = d4 losses
--- 10 = d5 losses
--- 11 = bgm setting
-
--- seed rng
-math.randomseed(tstamp())
-
--- int won't overflow like pico8...
-f=0
-
--- difficulty (1-5)
-difficulty=pmem(0)
-if not difficulty then difficulty=1 end
-
--- screen size
-sw=240
-sh=136
-
--- cell grid is 32px 4x4 :[]
-gsx=4
-gsy=4
-
--- cells
-cells={}
-
--- move
-movespeed=15
-move={
-  n=0,
-  p=false, -- processed
-  x=0,
-  y=0,
-  f=0,
-  d={} -- destroy cell ids
-}
-
-arrowblink={false,2} -- visible, frame switch
-
--- swipe detection
-swipeminmove=20
-swipe={
-  x=0,
-  y=0,
-  b=false
-}
-
--- test maps...
--- 0:empty,1:wbc,2:bacteria,3:blocked
-testmaps={
-  wbc={
-    {2,3,0,0},
-    {0,0,0,0},
-    {0,0,0,1},
-    {0,0,0,0}
-  },
-  debug={
-    {0,0,0,0},
-    {0,0,0,0},
-    {0,0,0,0},
-    {0,0,0,0}
-  }
-}
-testmap='wbc'
--- you can do testmap='random' also...
-testmap=false
-
 -- INIT
 function BOOT()
+
+  -- pmem map
+  -- 0 = selected difficulty
+  -- 1 = d1 wins
+  -- 2 = d2 wins
+  -- 3 = d3 wins
+  -- 4 = d4 wins
+  -- 5 = d5 wins
+  -- 6 = d1 losses
+  -- 7 = d2 losses
+  -- 8 = d3 losses
+  -- 9 = d4 losses
+  -- 10 = d5 losses
+  -- 11 = bgm setting
+
+  -- seed rng
+  math.randomseed(tstamp())
+
+  -- int won't overflow like pico8...
+  f=0
+
+  -- difficulty (1-5)
+  difficulty=pmem(0)
+  if not difficulty then difficulty=1 end
+  difficulty=clamp(difficulty,1,5)
+  difficulty=5
+
+  -- screen size
+  sw=240
+  sh=136
+
+  -- cell grid is 32px 4x4 :[]
+  gsx=4
+  gsy=4
+
+  -- cells
+  cells={}
+
+  -- move
+  movespeed=9
+  move={
+    n=0,
+    p=false, -- processed
+    x=0,
+    y=0,
+    f=0,
+    d={} -- destroy cell ids
+  }
+
+  arrowblink={false,2} -- visible, frame switch
+
+  -- swipe detection
+  swipeminmove=20
+  swipe={
+    x=0,
+    y=0,
+    b=false
+  }
+
+  -- test maps...
+  -- 0:empty,1:wbc,2:bacteria,3:blocked
+  testmaps={
+    wbc={
+      {2,3,0,0},
+      {0,0,0,0},
+      {0,0,0,1},
+      {0,0,0,0}
+    },
+    debug={
+      {0,0,0,0},
+      {0,0,0,0},
+      {0,0,0,0},
+      {0,0,0,0}
+    }
+  }
+  testmap='wbc'
+  -- you can do testmap='random' also...
+  testmap=false
 
   -- start bgm
   --music(0)
@@ -107,7 +109,7 @@ function BOOT()
   -- difficulty level 1 through 5 stars
   -- level gen dev...
   if not testmap then
-    levelgen(difficulty)
+    levelgen()
   end
 
   -- populate (grid style)
@@ -370,19 +372,53 @@ function TIC()
 
 end
 
-function levelgen(difficulty)
+function levelgen()
+
+  -- difficulty (global) 1-5 affects number of cells and moves (shields)
+  local p=difficulty*16
+  local max=math.ceil(p/5)
+  local min=max-difficulty
+
+  local num_cells=rint(min,max)  
+  local num_moves=rint(min,max)
+
+  trace('num_cells: '..num_cells)
+  trace('num_moves: '..num_moves)
+
+  local function gen_counts()
+    local cell_counts={
+      wbc=1,
+      bacteria=1,
+      blocked=0
+    }
+    while tsum(cell_counts)<num_cells do
+      -- 33% chance no blocked cells
+      local cm=3
+      if rint(1,3)==1 then cm=2 end
+      --
+      local r=rint(1,cm)
+      local t='wbc'
+      if r==2 then t='bacteria' end
+      if r==3 then t='blocked' end
+      cell_counts[t]=cell_counts[t]+1
+    end
+    return cell_counts
+  end
+
+  local gen_counts_runs=1;
+  local cell_counts=gen_counts()
+  -- need to regen until blocked is 3 or less and wbc to bacteria ratio is at least 50%
+  while cell_counts['blocked']>3 or cell_counts['wbc']/cell_counts['bacteria']<.5 do
+    cell_counts=gen_counts()
+    gen_counts_runs=gen_counts_runs+1
+  end
+
+  trace('gen_counts_runs: '..gen_counts_runs)
+  trace('cell_counts: '..tdump(cell_counts))
 
   -- TODO: levelgen!!!
-  local numcells={
-    wbc=1+math.ceil(difficulty/10)+rint(0,math.ceil(difficulty/33)),
-    bacteria=1+math.ceil(difficulty/10)+rint(0,math.ceil(difficulty/33)),
-    blocked=math.floor(difficulty/10)+rint(0,math.ceil(difficulty/33))
-  }
-  -- never more than 3 blocked cells
-  if numcells['blocked']>3 then numcells['blocked']=3 end
-
-  --
-  for type,numgen in pairs(numcells) do
+  -- Idea... instead of going backwards what if you just progress forwards with random movements instead? Building shields as you go? hmmm...
+  for type,numgen in pairs(cell_counts) do
     added=0
     while added<numgen do
       local x=rint(1,gsx)
@@ -395,46 +431,7 @@ function levelgen(difficulty)
       end
     end
   end
-
-  -- simple solution wbc {shield_ratio} shields of bacteria (?...)
-  -- todo: seems to work okay, but it's not well-built. Should really look into the more complex and tight backwards difficulty crafting...
-  local shield_ratio=1.2
-  local bacteria_max_shields=math.ceil(difficulty/17)
-  local wbc_max_shields=math.floor(bacteria_max_shields*shield_ratio)
-  if wbc_max_shields>8 then wbc_max_shields=8 end
-  -- populate all bacteria shields first to get total count
-  local total_bacteria_shields=0
-  for k,cell in pairs(cells) do
-    local min=1
-    if cell.t=='bacteria' then
-      local ns=set_random_shield(cell,min,bacteria_max_shields)
-      total_bacteria_shields=total_bacteria_shields+ns
-    end
-  end
-  -- try to shield wbcs to at least ratio in iterations of 1000x
-  -- if max <8 then increase max, otherwise increase min
-  local wbc_shield_runs=0
-  local wbc_min_shields=0
-  while get_total_wbc_shields()<total_bacteria_shields*shield_ratio do
-    for i=1,1000 do
-      wbc_shield_runs=wbc_shield_runs+1
-      for k,cell in pairs(cells) do
-        if cell.t=='wbc' then
-          set_random_shield(cell,wbc_min_shields,wbc_max_shields)
-        end
-      end
-      if get_total_wbc_shields()>total_bacteria_shields*shield_ratio then
-        break
-      end
-    end
-    -- increase wbc shield difficulty...
-    if wbc_max_shields<8 then
-      wbc_max_shields=wbc_max_shields+1
-    elseif wbc_min_shields<8 then
-      wbc_min_shields=wbc_min_shields+1
-    end
-  end
-  trace('WBC SHIELD RUNS: '..wbc_shield_runs)
+  
 end
 
 function clone_shield(from,to)
@@ -650,7 +647,7 @@ end
 
 function gen_cell(t,x,y)
   local e={
-    t=t, -- type (wbc, bacteria, virus, blocked)
+    t=t, -- type (wbc, bacteria, blocked)
     x=x,
     y=y,
     r=rint(0,3),
@@ -689,7 +686,7 @@ function draw_cell(c)
     shieldcolor=0
   end
   if c.t=='virus' then
-    sprnum=64
+    sprnum=64 -- no longer used...
   end
   if c.t=='blocked' then
     sprnum=128
@@ -809,6 +806,16 @@ function tclean(t)
   end
 end
 
+function tsum(t)
+  local n=0
+  for k,v in pairs(t) do
+    if v and type(v)=='number' then
+      n=n+v
+    end
+  end
+  return n
+end
+
 function tcontains(t,search)
   for k,v in pairs(t) do
     if v==search then return true end
@@ -823,6 +830,12 @@ function numpad(num,width)
     s='0'..s
   end
   return s
+end
+
+function clamp(n,min,max)
+  if n<min then n=min end
+  if n>max then n=max end
+  return n
 end
 
 -- Tiny Font (3x3)
