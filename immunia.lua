@@ -19,17 +19,29 @@ function MENU(i)
   GameMenu[i+1]()
 end
 
+-- pmem map
+-- 0 = selected difficulty
+-- 1 = d1 wins
+-- 2 = d2 wins
+-- 3 = d3 wins
+-- 4 = d4 wins
+-- 5 = d5 wins
+-- 6 = d1 losses
+-- 7 = d2 losses
+-- 8 = d3 losses
+-- 9 = d4 losses
+-- 10 = d5 losses
+-- 11 = bgm setting
+
 -- seed rng
 math.randomseed(tstamp())
 
 -- int won't overflow like pico8...
 f=0
 
--- level
-level=pmem(0)
---pmem(0,1)
-if level==0 then level=1 end
-if level>99 then level=1 end
+-- difficulty (1-5)
+difficulty=pmem(0)
+if not difficulty then difficulty=1 end
 
 -- screen size
 sw=240
@@ -64,18 +76,19 @@ swipe={
 }
 
 -- test maps...
+-- 0:empty,1:wbc,2:bacteria,3:blocked
 testmaps={
   wbc={
-    {2,3,0,0,},
-    {0,0,0,0,},
-    {0,0,4,1,},
-    {0,0,0,0,}
+    {2,3,0,0},
+    {0,0,0,0},
+    {0,0,0,1},
+    {0,0,0,0}
   },
   debug={
-    {0,0,0,0,},
-    {0,0,0,0,},
-    {0,0,0,0,},
-    {0,0,0,0,}
+    {0,0,0,0},
+    {0,0,0,0},
+    {0,0,0,0},
+    {0,0,0,0}
   }
 }
 testmap='wbc'
@@ -94,17 +107,7 @@ function BOOT()
   -- difficulty level 1 through 5 stars
   -- level gen dev...
   if not testmap then
-    -- test: make sure level gen doesn't get locked...
-    if false then
-      for lev=98,99 do
-        for i=1,100 do
-          cells={}
-          lg=levelgen(lev)
-        end
-      end
-    end
-    levelgen(level)
-    --
+    levelgen(difficulty)
   end
 
   -- populate (grid style)
@@ -113,8 +116,8 @@ function BOOT()
       for x=1,gsx do
         local r=0
         if testmap=='random' then
-          if rint(1,5)==1 then -- chance for cell on random testmap
-            r=rint(1,4)
+          if rint(1,2)==1 then -- chance for cell on random testmap
+            r=rint(1,3)
           end
         else
           r=testmaps[testmap][y][x]
@@ -122,8 +125,7 @@ function BOOT()
         if r>0 then
           if r==1 then t='wbc' end
           if r==2 then t='bacteria' end
-          if r==3 then t='virus' end
-          if r==4 then t='blocked' end
+          if r==3 then t='blocked' end
           local cell=gen_cell(t,x,y)
           -- random shield
           for y=1,3 do
@@ -270,7 +272,7 @@ function TIC()
   local debugx=2
   local debugy=18
   local debugc=5
-  tf:print('level: '..level,debugx,debugy,debugc)
+  tf:print('difficulty: '..difficulty,debugx,debugy,debugc)
   tf:print('move: '..move.x..','..move.y..','..move.n,debugx,debugy+4,debugc)
   tf:print('mouse: '..mx..','..my..','..bint(mb),debugx,debugy+8,debugc)
   tf:print('swipe: '..swipe.x..','..swipe.y..','..bint(swipe.b),debugx,debugy+12,debugc)
@@ -295,11 +297,6 @@ function TIC()
 
   -- calculate move
   if move.f>0 and not move.p then
-    -- virus and bacteria speed
-    virusin=virusin-1
-    if virusin<0 then virusin=virusspeed end
-    bacteriain=bacteriain-1
-    if bacteriain<0 then bacteriain=bacteriaspeed end
     -- first, process wbc movement... multiple passes...
     local wbcs={}
     for k,cell in pairs(cells) do
@@ -338,11 +335,6 @@ function TIC()
         local tx,ty=get_target_loc(cell.x,cell.y)
         local target,target_index=get_cell_at(tx,ty)
         if target then
-          -- viruses (easy, just kill them...)
-          if target.t=='virus' then
-            table.insert(move.d,target_index)
-            cell.p=3
-          end
           -- bacteria
           if target.t=='bacteria' then
             process_attack(cell,cell_index,target,target_index)
@@ -356,134 +348,48 @@ function TIC()
     for k,v in pairs(move.d) do
       cells[v]=nil
     end
-    -- next, process viruses
-    -- if they are next to bacteria (cross) then they will try to duplicate (open cell around bacteria) if virusin==0
-    -- otherwise they will try to move randomly :P (every turn)
-    local add_viruses={}
-    for k,cell in pairs(cells) do
-      if cell.t=='virus' then
-        local neighbs=get_cross_neighbors(cell.x,cell.y)
-        local attached_bac=false
-        for nk,ncell in pairs(neighbs) do
-          if ncell and ncell.t=='bacteria' then
-            attached_bac=ncell
-            break
-          end
-        end
-        if attached_bac then
-          local o=get_open_cells_from(attached_bac.x,attached_bac.y)
-          if #o>0 then
-            -- add new virus at first open cell...
-            if virusin==0 then
-              local nv=gen_cell('virus',o[1][1],o[1][2])
-              table.insert(add_viruses,nv)
-            end
-          end
-        else
-          -- move virus to random location
-          local o=get_open_cells_from(cell.x,cell.y)
-          if #o>0 then
-            tshuffle(o)
-            cell.x=o[1][1]
-            cell.y=o[1][2]
-          end
-        end
-      end
-    end
-    for k,v in pairs(add_viruses) do
-      table.insert(cells,v)
-    end
-    -- next, process bacteria (divide if bacteriain==0) -- shield is cloned
-    local add_bacteria={}
-    for k,cell in pairs(cells) do
-      if cell.t=='bacteria' then
-        if bacteriain==0 then
-          local o=get_open_cells_from(cell.x,cell.y)
-          if #o>0 then
-            local nb=gen_cell('bacteria',o[1][1],o[1][2])
-            clone_shield(cell,nb)
-            table.insert(add_bacteria,nb)
-          end
-        end
-      end
-    end
-    for k,v in pairs(add_bacteria) do
-      table.insert(cells,v)
-    end
     -- clean cells table
     tclean(cells)
     -- check win (before game over check...)
     local bacteria_cells=get_cell_count('bacteria')
     if bacteria_cells==0 then
-      level=level+1
-      pmem(0,level)
+      trace('win')
+      -- todo inc wins
       reset()
     end
     -- check game over
     local wbc_cells=get_cell_count('wbc')
-    if wbc_cells==0 then reset() end
+    if wbc_cells==0 then
+      reset()
+      trace('lose')
+      -- todo inc losses
+    end
     -- move processed...
     move.p=true
   end
 
 end
 
-function levelgen(level)
-  local lg={
-    -- todo: these speeds variable? or stay the same every level? not sure...
-    virusspeed=9,
-    bacteriaspeed=21,
-    -- todo: is this map useless? Why not just use the virtual grid created by the cells table?
-    map={
-      {0,0,0,0,0,0,0,0,0,0,0,0,0},
-      {0,0,0,0,0,0,0,0,0,0,0,0,0},
-      {0,0,0,0,0,0,0,0,0,0,0,0,0},
-      {0,0,0,0,0,0,0,0,0,0,0,0,0},
-      {0,0,0,0,0,0,0,0,0,0,0,0,0},
-      {0,0,0,0,0,0,0,0,0,0,0,0,0},
-    }
-  }
+function levelgen(difficulty)
 
-  -- How?
-  -- higher level means...
-    -- more cells on the screen
-    -- more shields (complexity)
-    -- more moves (same as shields?)
-    -- more viruses
-    -- less "extra" shields
-  -- gen steps
-    -- determine total number of each cell types and shields
-    -- build backwards (?...)
-    -- or simpler solution like 2x wbc shields vs bacteria shields?
-
+  -- TODO: levelgen!!!
   local numcells={
-    wbc=1+math.ceil(level/10)+rint(0,math.ceil(level/33)),
-    bacteria=1+math.ceil(level/10)+rint(0,math.ceil(level/33)),
-    virus=math.floor(level/30)+rint(0,math.ceil(level/33))
+    wbc=1+math.ceil(difficulty/10)+rint(0,math.ceil(difficulty/33)),
+    bacteria=1+math.ceil(difficulty/10)+rint(0,math.ceil(difficulty/33)),
+    blocked=math.floor(difficulty/10)+rint(0,math.ceil(difficulty/33))
   }
-  numblocked=math.floor(level/10)+rint(0,math.ceil(level/33))
+  -- never more than 3 blocked cells
+  if numcells['blocked']>3 then numcells['blocked']=3 end
 
-  -- placed blocked cells first to avoid encased cells (by checking cell_is_fully_blocked before placement)
-  local added=0
-  while added<numblocked do
-    local x=rint(1,gsx)
-    local y=rint(1,gsy)
-    if lg['map'][y][x]==0 then
-      local cell=gen_cell('blocked',x,y)
-      lg['map'][y][x]=1
-      added=added+1
-      table.insert(cells,cell)
-    end
-  end
-
+  --
   for type,numgen in pairs(numcells) do
     added=0
     while added<numgen do
       local x=rint(1,gsx)
       local y=rint(1,gsy)
-      if lg['map'][y][x]==0 and not cell_is_fully_blocked(x,y) then -- doesn't work for cases other than single cell sized blockages...
+      local c=get_cell_at(x,y)
+      if not c then
         local cell=gen_cell(type,x,y)
-        lg['map'][y][x]=1
         added=added+1
         table.insert(cells,cell)
       end
@@ -491,9 +397,9 @@ function levelgen(level)
   end
 
   -- simple solution wbc {shield_ratio} shields of bacteria (?...)
-  -- todo: seems to work okay, but it's not well-built. Should really look into the more complex and tight backwards level crafting...
+  -- todo: seems to work okay, but it's not well-built. Should really look into the more complex and tight backwards difficulty crafting...
   local shield_ratio=1.2
-  local bacteria_max_shields=math.ceil(level/17)
+  local bacteria_max_shields=math.ceil(difficulty/17)
   local wbc_max_shields=math.floor(bacteria_max_shields*shield_ratio)
   if wbc_max_shields>8 then wbc_max_shields=8 end
   -- populate all bacteria shields first to get total count
@@ -521,7 +427,7 @@ function levelgen(level)
         break
       end
     end
-    -- increase wbc shield levels...
+    -- increase wbc shield difficulty...
     if wbc_max_shields<8 then
       wbc_max_shields=wbc_max_shields+1
     elseif wbc_min_shields<8 then
@@ -529,9 +435,6 @@ function levelgen(level)
     end
   end
   trace('WBC SHIELD RUNS: '..wbc_shield_runs)
-
-  --
-  return lg -- useless to return if map is unused and speeds don't matter...
 end
 
 function clone_shield(from,to)
@@ -593,15 +496,6 @@ function get_cell_count(type)
     if cell and cell.t==type then c=c+1 end
   end
   return c
-end
-
-function cell_is_fully_blocked(x,y)
-  local n=get_cross_neighbors(x,y)
-  if #n<4 then return false end
-  for k,v in pairs(n) do
-    if v.t~='blocked' then return false end
-  end
-  return true
 end
 
 function get_open_cells_from(x,y)
@@ -862,10 +756,12 @@ end
 
 function draw_arrow(dir)
   -- `spr(id x y colorkey=-1 scale=1 flip=0 rotate=0 w=1 h=1)`
-  if dir=='up' then spr(160,sw/2-16,26,0,1,0,0,4,2) end
-  if dir=='down' then spr(160,sw/2-16,106,0,1,0,2,4,2) end
-  if dir=='left' then spr(160,16,sh/2-10,0,1,0,3,4,2) end
-  if dir=='right' then spr(160,sw-32,sh/2-10,0,1,0,1,4,2) end
+  local xcenter=112+64-16
+  local ycenter=32+16
+  if dir=='up' then spr(160,xcenter,0,0,1,0,0,4,2) end
+  if dir=='down' then spr(160,xcenter,sh-8-16,0,1,0,2,4,2) end
+  if dir=='left' then spr(160,112,ycenter,0,1,0,3,4,2) end
+  if dir=='right' then spr(160,sw-16,ycenter,0,1,0,1,4,2) end
 end
 
 -- inclusive
@@ -1126,13 +1022,15 @@ end
 -- 153:0111101010111010110110101111101011110010000001101111110000000000
 -- 154:0101111001011101010110110101111101001111011000000011111100000000
 -- 155:0111101010111010110110101111101011110010000001101111110000000000
--- 161:0000000100000011000001110000111100011111001111110111111111111111
--- 162:1000000011000000111000001111000011111000111111001111111011111111
--- 176:0000000100000011000001110000111100011111001111110111111111111111
--- 177:1111111111111111111111111111111111111111111111111111111111111111
--- 178:1111111111111111111111111111111111111111111111111111111111111111
--- 179:1000000011000000111000001111000011111000111111001111111011111111
--- 240:0000000000000000011000000111111001100110011001100111111000000000
+-- 161:0000000100000011000001110000111400011144001114440111444411144444
+-- 162:1000000011000000111000004111000044111000444111004444111044444111
+-- 176:0000000100000011000001110000111400011144001114440111111101111111
+-- 177:1144444414444444444444444444444444444444444444441111111111111111
+-- 178:4444441144444441444444444444444444444444444444441111111111111111
+-- 179:1000000011000000111000004111000044111000444111001111111011111110
+-- 192:0001100000100100111001111000000101000010100000011001100111100111
+-- 193:0001100000144100111441111444444101444410144444411441144111100111
+-- 240:4444444444444444411444444111111441144114411441144111111444444444
 -- </TILES>
 
 -- <WAVES>
