@@ -99,6 +99,7 @@ function BOOT()
   testmap='wbc'
   -- you can do testmap='random' also...
   testmap=false
+  testmap='random'
 
   -- start bgm
   --music(0)
@@ -129,13 +130,7 @@ function BOOT()
           if r==2 then t='bacteria' end
           if r==3 then t='blocked' end
           local cell=gen_cell(t,x,y)
-          -- random shield
-          for y=1,3 do
-            for x=1,3 do
-              cell.s[x][y]=rint(0,1)
-            end
-          end
-          cell.s[2][2]=1 -- nucleus always 1
+          set_random_shield(cell)
           table.insert(cells,cell)
         end
       end
@@ -443,56 +438,11 @@ function levelgen()
 end
 
 function clone_shield(from,to)
-  for y=1,3 do
-    for x=1,3 do
-      to.s[y][x]=from.s[y][x]
-    end
-  end
+  to.s=copy(from.s)
 end
 
-function set_random_shield(cell,min,max)
-  -- min,max
-  if not min or min<0 or min>8 then min=0 end
-  if not max or max<0 or max>8 then max=8 end
-  if min>max then min=max end
-  -- reset
-  cell.s={
-    {0,0,0},
-    {0,1,0},
-    {0,0,0}
-  }
-  -- random add to max
-  local n=rint(min,max)
-  local added=0
-  while added<n do
-    local x=rint(1,3)
-    local y=rint(1,3)
-    if not (x==2 and y==2) then
-      if cell.s[y][x]==0 then
-        cell.s[y][x]=1
-        added=added+1
-      end
-    end
-  end
-  return n
-end
-
-function get_total_wbc_shields()
-  local n=0
-  for k,cell in pairs(cells) do
-    if cell and cell.t=='wbc' then
-      for y=1,3 do
-        for x=1,3 do
-          if not (x==2 and y==2) then
-            if cell.s[y][x]==1 then
-              n=n+1
-            end
-          end
-        end
-      end
-    end
-  end
-  return n
+function set_random_shield(cell)
+  for i=1,4 do cell.s[i]=rint(0,3) end
 end
 
 function get_cell_count(type)
@@ -550,58 +500,31 @@ function get_cross_neighbors(x,y)
 end
 
 function process_attack(wbc,wbc_index,bacteria,bacteria_index)
-  -- BUG: attack from loop wrong shield
   --trace('ATTACK: '..wbc_index..'->'..bacteria_index)
-  -- shield priority is cross first, then diagonal
-  -- diagonal priority is left to right, top to bottom
-  -- attack (wbc) / defend (bacteria) vectors
-  local av={}
-  local dv={}
+  local av=0 -- attacking shield
+  local dv=0 -- defending shield
   if move.x<0 then
-    av={{1,2},{1,1},{1,3},{2,2}}
-    dv={{3,2},{3,1},{3,3},{2,2}}
+    av=3
+    dv=4
   end
   if move.x>0 then
-    dv={{1,2},{1,1},{1,3},{2,2}}
-    av={{3,2},{3,1},{3,3},{2,2}}
+    av=4
+    dv=3
   end
   if move.y<0 then
-    av={{2,1},{1,1},{1,3},{2,2}}
-    dv={{2,3},{1,3},{3,3},{2,2}}
+    av=1
+    dv=2
   end
   if move.y>0 then
-    dv={{2,1},{1,1},{1,3},{2,2}}
-    av={{2,3},{1,3},{3,3},{2,2}}
+    av=2
+    dv=1
   end
-  -- debug
-  --trace('AV: '..tdump(av,true))
-  --trace('DV: '..tdump(dv,true))
-  -- pwn n00bs
-  for ak,vec in pairs(av) do
-    if wbc.s[vec[1]][vec[2]]==1 then
-      --trace('AV REM: '..tdump(vec,true))
-      wbc.s[vec[1]][vec[2]]=0
-      break
-    end
-  end
-  for ak,vec in pairs(dv) do
-    if bacteria.s[vec[1]][vec[2]]==1 then
-      --trace('DV REM: '..tdump(vec,true))
-      bacteria.s[vec[1]][vec[2]]=0
-      break
-    end
-  end
-  -- who died!?
-  --trace('WBC N: '..wbc.s[2][2])
-  if wbc.s[2][2]==0 then
-    --trace('wbc dead... '..wbc_index)
-    table.insert(move.d,wbc_index)
-  end
-  --trace('BAC N: '..bacteria.s[2][2])
-  if bacteria.s[2][2]==0 then
-    --trace('bacteria dead... '..bacteria_index)
-    table.insert(move.d,bacteria_index)
-  end
+  -- wbc attack
+  wbc.s[av]=wbc.s[av]-1
+  if wbc.s[av]<0 then table.insert(move.d,wbc_index) end -- wbc died
+  -- bacteria defend
+  bacteria.s[dv]=bacteria.s[dv]-1
+  if bacteria.s[dv]<0 then table.insert(move.d,bacteria_index) end -- bacteria died
 end
 
 function get_cell_at(x,y)
@@ -662,11 +585,7 @@ function gen_cell(t,x,y)
     f=rint(0,3),
     a=1, -- anim, all use 6 frames (same anims...)
     p=0, -- (move) processed id (0=not processed,1=moved,2=cannot move,3=attacked)
-    s={ -- shield -> (wbc and bacteria)
-      {0,0,0},
-      {0,1,0},
-      {0,0,0}
-    }
+    s={0,0,0,0} -- shield (up down left right) -> (wbc and bacteria)
   }
   return e
 end
@@ -704,47 +623,34 @@ function draw_cell(c)
   -- shield
   local soffset=-1
   if drawshield then
-    if c.s[1][1]==1 then
-      -- rect(x y w h color)
-      rect(sx+12+soffset,sy+12+soffset,2,2,shieldcolor)
-      rect(sx+14+soffset,sy+12+soffset,2,2,shieldcolor)
-      rect(sx+12+soffset,sy+14+soffset,2,2,shieldcolor)
+    -- draw nucleus
+    local ncolor=2
+    if shieldcolor==1 then ncolor=10 end
+    rect(sx+16+soffset,sy+16+soffset,3,3,ncolor) --inside
+    rectb(sx+15+soffset,sy+15+soffset,4,4,shieldcolor) -- outside
+    -- up
+    if c.s[1]>0 then
+      for i=1,c.s[1] do
+        rect(sx+16+soffset-1,sy+16+(soffset-i)*2,4,1,shieldcolor)
+      end
     end
-    if c.s[2][1]==1 then
-      rect(sx+16+soffset,sy+12+soffset,2,2,shieldcolor)
+    -- down
+    if c.s[2]>0 then
+      for i=1,c.s[2] do
+        rect(sx+16+soffset-1,sy+16+(i*2)+1,4,1,shieldcolor)
+      end
     end
-    if c.s[3][1]==1 then
-      rect(sx+18+soffset,sy+12+soffset,2,2,shieldcolor)
-      rect(sx+20+soffset,sy+12+soffset,2,2,shieldcolor)
-      rect(sx+20+soffset,sy+14+soffset,2,2,shieldcolor)
+    -- left
+    if c.s[3]>0 then
+      for i=1,c.s[3] do
+        rect(sx+16+(soffset-i)*2,sy+16+soffset-1,1,4,shieldcolor)
+      end
     end
-    if c.s[1][2]==1 then
-      rect(sx+12+soffset,sy+16+soffset,2,2,shieldcolor)
-    end
-    if c.s[2][2]==1 then
-      rect(sx+16+soffset,sy+16+soffset,2,2,shieldcolor) -- nucleus
-      -- nucleus border
-      local ncolor=2
-      if shieldcolor==1 then ncolor=10 end
-      rect(sx+16+soffset,sy+16+soffset,2,2,shieldcolor) -- nucleus
-      rectb(sx+15+soffset,sy+15+soffset,4,4,ncolor)
-      --rectb(sx+14+soffset,sy+14+soffset,6,6,ncolor)
-    end
-    if c.s[3][2]==1 then
-      rect(sx+20+soffset,sy+16+soffset,2,2,shieldcolor)
-    end
-    if c.s[1][3]==1 then
-      rect(sx+12+soffset,sy+18+soffset,2,2,shieldcolor)
-      rect(sx+12+soffset,sy+20+soffset,2,2,shieldcolor)
-      rect(sx+14+soffset,sy+20+soffset,2,2,shieldcolor)
-    end
-    if c.s[2][3]==1 then
-      rect(sx+16+soffset,sy+20+soffset,2,2,shieldcolor)
-    end
-    if c.s[3][3]==1 then
-      rect(sx+20+soffset,sy+18+soffset,2,2,shieldcolor)
-      rect(sx+20+soffset,sy+20+soffset,2,2,shieldcolor)
-      rect(sx+18+soffset,sy+20+soffset,2,2,shieldcolor)
+    -- right
+    if c.s[4]>0 then
+      for i=1,c.s[4] do
+        rect(sx+16+(i*2)+1,sy+16+soffset-1,1,4,shieldcolor)
+      end
     end
   end
   -- draw blocked center
