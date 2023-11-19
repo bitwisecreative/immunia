@@ -27,6 +27,7 @@ f=0
 
 -- level
 level=pmem(0)
+--pmem(0,1)
 if level==0 then level=1 end
 if level>99 then level=1 end
 
@@ -115,7 +116,7 @@ function BOOT()
   if not testmap then
     local lg
     -- test: make sure level gen doesnt get locked...
-    if true then
+    if false then
       for lev=98,99 do
         for i=1,100 do
           cells={}
@@ -520,17 +521,16 @@ function levelgen(level)
 
   -- simple solution wbc {shield_ratio} shields of bacteria (?...)
   -- todo: seems to work okay, but it's not well-built. Should really look into the more complex and tight backwards level crafting...
-  local shield_ratio=1.1
+  local shield_ratio=1.2
   local bacteria_max_shields=math.ceil(level/17)
-  local wbc_max_shields=math.ceil(bacteria_max_shields*shield_ratio)
+  local wbc_max_shields=math.floor(bacteria_max_shields*shield_ratio)
   if wbc_max_shields>8 then wbc_max_shields=8 end
   -- populate all bacteria shields first to get total count
   local total_bacteria_shields=0
   for k,cell in pairs(cells) do
     local min=1
-    local max=bacteria_max_shields
     if cell.t=='bacteria' then
-      local ns=set_random_shield(cell,min,max)
+      local ns=set_random_shield(cell,min,bacteria_max_shields)
       total_bacteria_shields=total_bacteria_shields+ns
     end
   end
@@ -680,6 +680,7 @@ function get_cross_neighbors(x,y)
 end
 
 function process_attack(wbc,wbc_index,bacteria,bacteria_index)
+  -- BUG: attack from loop wrong shield
   --trace('ATTACK: '..wbc_index..'->'..bacteria_index)
   -- shield priority is cross first, then diagonal
   -- diagonal priority is left to right, top to bottom
