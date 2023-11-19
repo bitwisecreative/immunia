@@ -431,6 +431,14 @@ function levelgen()
       end
     end
   end
+
+  -- Forward building attempt
+  local ocells=copy(cells)
+  for i=1,num_moves do
+    local r=rint(1,4) -- up down left right
+    -- TODO: attempt forward levelgen...
+  end
+
   
 end
 
@@ -821,6 +829,17 @@ function tcontains(t,search)
     if v==search then return true end
   end
   return false
+end
+
+-- copy table by value
+function copy(obj, seen)
+  if type(obj) ~= 'table' then return obj end
+  if seen and seen[obj] then return seen[obj] end
+  local s = seen or {}
+  local res = setmetatable({}, getmetatable(obj))
+  s[obj] = res
+  for k, v in pairs(obj) do res[copy(k, s)] = copy(v, s) end
+  return res
 end
 
 -- left pad numbers with zero
