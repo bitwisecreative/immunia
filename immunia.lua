@@ -1,4 +1,3 @@
----@diagnostic disable: undefined-global, lowercase-global
 -- title:   Immunia
 -- author:  Bitwise Creative
 -- desc:    Simple 1-bit immunity puzzle game
@@ -20,7 +19,6 @@ function MENU(i)
   GameMenu[i+1]()
 end
 
-
 -- seed rng
 math.randomseed(tstamp())
 
@@ -28,7 +26,9 @@ math.randomseed(tstamp())
 f=0
 
 -- level
-level=1
+level=pmem(0)
+if level==0 then level=1 end
+if level>99 then level=1 end
 
 -- screen size
 sw=240
@@ -113,15 +113,16 @@ function BOOT()
 
   -- level gen dev...
   if not testmap then
-    level=rint(1,99)
+    local lg
     -- test: make sure level gen doesnt get locked...
-    -- local lg
-    -- for lev=1,99 do
-    --   for i=1,1000 do
-    --     cells={}
-    --     lg=levelgen(lev)
-    --   end
-    -- end
+    if true then
+      for lev=98,99 do
+        for i=1,100 do
+          cells={}
+          lg=levelgen(lev)
+        end
+      end
+    end
     lg=levelgen(level)
     --
     virusspeed=lg['virusspeed']
@@ -439,6 +440,16 @@ function TIC()
     end
     -- clean cells table
     tclean(cells)
+    -- check win (before game over check...)
+    local bacteria_cells=get_cell_count('bacteria')
+    if bacteria_cells==0 then
+      level=level+1
+      pmem(0,level)
+      reset()
+    end
+    -- check game over
+    local wbc_cells=get_cell_count('wbc')
+    if wbc_cells==0 then reset() end
     -- move processed...
     move.p=true
   end
@@ -509,15 +520,14 @@ function levelgen(level)
 
   -- simple solution wbc {shield_ratio} shields of bacteria (?...)
   -- todo: seems to work okay, but it's not well-built. Should really look into the more complex and tight backwards level crafting...
-  -- BUG: debug issue when wbc_shield_runs is 0 and the level looks jacked up...
-  local shield_ratio=1.3
+  local shield_ratio=1.1
   local bacteria_max_shields=math.ceil(level/17)
   local wbc_max_shields=math.ceil(bacteria_max_shields*shield_ratio)
   if wbc_max_shields>8 then wbc_max_shields=8 end
   -- populate all bacteria shields first to get total count
   local total_bacteria_shields=0
   for k,cell in pairs(cells) do
-    local min=0
+    local min=1
     local max=bacteria_max_shields
     if cell.t=='bacteria' then
       local ns=set_random_shield(cell,min,max)
@@ -604,6 +614,14 @@ function get_total_wbc_shields()
     end
   end
   return n
+end
+
+function get_cell_count(type)
+  local c=0
+  for k,cell in pairs(cells) do
+    if cell and cell.t==type then c=c+1 end
+  end
+  return c
 end
 
 function cell_is_fully_blocked(x,y)
@@ -904,10 +922,17 @@ end
 -- removes nils from table
 function tclean(t)
   for i=#t,1,-1 do -- reverse
-    if t[i]==nil then
+    if i<=#t and t[i]==nil then
       table.remove(t,i)
     end
   end
+end
+
+function tcontains(t,search)
+  for k,v in pairs(t) do
+    if v==search then return true end
+  end
+  return false
 end
 
 -- left pad numbers with zero
