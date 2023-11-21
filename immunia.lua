@@ -22,6 +22,8 @@ end
 -- INIT
 function BOOT()
 
+  trace('-- BOOT --')
+
   -- pmem map
   -- 0 = selected difficulty
   -- 1 = d1 wins
@@ -46,7 +48,8 @@ function BOOT()
   difficulty=pmem(0)
   if not difficulty then difficulty=1 end
   difficulty=clamp(difficulty,1,5)
-  difficulty=5
+  difficulty=rint(1,5)
+  trace('difficulty: '..difficulty)
 
   -- screen size
   sw=240
@@ -99,7 +102,7 @@ function BOOT()
   testmap='wbc'
   -- you can do testmap='random' also...
   testmap=false
-  testmap='random'
+  --testmap='random'
 
   -- start bgm
   --music(0)
@@ -353,13 +356,14 @@ function TIC()
       trace('win')
       -- todo inc wins
       reset()
-    end
-    -- check game over
-    local wbc_cells=get_cell_count('wbc')
-    if wbc_cells==0 then
-      reset()
-      trace('lose')
-      -- todo inc losses
+    else
+      -- check game over
+      local wbc_cells=get_cell_count('wbc')
+      if wbc_cells==0 then
+        reset()
+        trace('lose')
+        -- todo inc losses
+      end
     end
     -- move processed...
     move.p=true
@@ -369,72 +373,73 @@ end
 
 function levelgen()
 
-  -- difficulty (global) 1-5 affects number of cells and moves (shields)
-  local p=difficulty*16
-  local max=math.ceil(p/5)
-  local min=max-difficulty
-
-  local num_cells=rint(min,max)  
-  local num_moves=rint(min,max)
-
-  trace('num_cells: '..num_cells)
-  trace('num_moves: '..num_moves)
-
-  local function gen_counts()
-    local cell_counts={
-      wbc=1,
-      bacteria=1,
-      blocked=0
-    }
-    while tsum(cell_counts)<num_cells do
-      -- 33% chance no blocked cells
-      local cm=3
-      if rint(1,3)==1 then cm=2 end
-      --
-      local r=rint(1,cm)
-      local t='wbc'
-      if r==2 then t='bacteria' end
-      if r==3 then t='blocked' end
-      cell_counts[t]=cell_counts[t]+1
-    end
-    return cell_counts
-  end
-
-  local gen_counts_runs=1;
-  local cell_counts=gen_counts()
-  -- need to regen until blocked is 3 or less and wbc to bacteria ratio is at least 50%
-  while cell_counts['blocked']>3 or cell_counts['wbc']/cell_counts['bacteria']<.5 do
-    cell_counts=gen_counts()
-    gen_counts_runs=gen_counts_runs+1
-  end
-
-  trace('gen_counts_runs: '..gen_counts_runs)
-  trace('cell_counts: '..tdump(cell_counts))
-
-  -- TODO: levelgen!!!
-  -- Idea... instead of going backwards what if you just progress forwards with random movements instead? Building shields as you go? hmmm...
-  for type,numgen in pairs(cell_counts) do
-    added=0
-    while added<numgen do
-      local x=rint(1,gsx)
-      local y=rint(1,gsy)
+  local function place_random_cell(t)
+    local added=false
+    local x,y
+    while not added do
+      x=rint(1,gsx)
+      y=rint(1,gsy)
       local c=get_cell_at(x,y)
       if not c then
-        local cell=gen_cell(type,x,y)
-        added=added+1
+        local cell=gen_cell(t,x,y)
+        added=true
         table.insert(cells,cell)
       end
     end
+    return x,y
   end
 
-  -- Forward building attempt
-  local ocells=copy(cells)
+  -- difficulty (global) 1-5 affects number of moves
+  local p=difficulty*16
+  local max=math.ceil(p/5)
+  local min=max-difficulty
+  local num_moves=rint(min,max)
+  trace('moves: '..min..','..max)
+
+  -- generate and place blocked cells
+  local num_blocked=rint(0,3)
+  for i=1,num_blocked do
+    place_random_cell('blocked')
+  end
+
+  -- place first random wbc
+  local wx,wy=place_random_cell('wbc')
+  trace('fwbc: '..wx..','..wy)
+
+  -- place first random bacteria (neighbor of first wbc)
+  local bn=get_empty_cross_neighbors(wx,wy)
+  tshuffle(bn)
+  local bnc=gen_cell('bacteria',bn[1][1],bn[1][2])
+  table.insert(cells,bnc)
+
+  -- random moves and backfill the level
   for i=1,num_moves do
-    local r=rint(1,4) -- up down left right
-    -- TODO: attempt forward levelgen...
+    if not grid_full() then
+      -- 33% chance to add wbc
+      if rint(1,3)==1 then place_random_cell('wbc') end
+      -- 33% chance to add bacteria
+      if rint(1,3)==1 then place_random_cell('bacteria') end
+    end
+    -- up down left right
+    local d=rint(1,4)
+    local mv={}
+    if d==1 then mv={0,-1} end
+    if d==2 then mv={0,1} end
+    if d==3 then mv={-1,0} end
+    if d==4 then mv={1,0} end
+    -- ...
   end
 
-  
+end
+
+function grid_full()
+  for y=1,gsy do
+    for x=1,gsx do
+      local c=get_cell_at(x,y)
+      if not c then return false end
+    end
+  end
+  return true
 end
 
 function clone_shield(from,to)
@@ -494,6 +499,43 @@ function get_cross_neighbors(x,y)
     --
     local cell=get_cell_at(v[1],v[2])
     if cell then table.insert(n,cell) end
+  end
+  --
+  return n
+end
+
+function get_empty_cross_neighbors(x,y)
+  local n={}
+  local vecs={
+    {x,y-1},{x,y+1},{x-1,y},{x+1,y}
+  }
+  for k,v in pairs(vecs) do
+    -- looping grid...
+    if v[1]<1 then v[1]=gsx end
+    if v[1]>gsx then v[1]=1 end
+    if v[2]<1 then v[2]=gsy end
+    if v[2]>gsy then v[2]=1 end
+    --
+    local cell=get_cell_at(v[1],v[2])
+    if not cell then table.insert(n,{v[1],v[2]}) end
+  end
+  --
+  return n
+end
+
+function get_neighbor_coords(x,y)
+  local n={}
+  local vecs={
+    {x,y-1},{x,y+1},{x-1,y},{x+1,y}
+  }
+  for k,v in pairs(vecs) do
+    -- looping grid...
+    if v[1]<1 then v[1]=gsx end
+    if v[1]>gsx then v[1]=1 end
+    if v[2]<1 then v[2]=gsy end
+    if v[2]>gsy then v[2]=1 end
+    --
+    table.insert(n,{v[1],v[2]})
   end
   --
   return n
