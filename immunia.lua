@@ -412,6 +412,18 @@ function levelgen()
   local bnc=gen_cell('bacteria',bn[1][1],bn[1][2])
   table.insert(cells,bnc)
 
+  -- support function that applies the levelgen movement to wbc...
+  local function move_wbc(cell,mv)
+    local to_x=cell.x+mv[1]
+    local to_y=cell.y+mv[2]
+    local to_n=get_cell_at(to_x,to_y)
+    if tn_n==nil then
+      cell.x=to_x
+      cell.y=to_y
+    else
+
+    end
+  end
   -- random moves and backfill the level
   for i=1,num_moves do
     if not grid_full() then
@@ -427,9 +439,21 @@ function levelgen()
     if d==2 then mv={0,1} end
     if d==3 then mv={-1,0} end
     if d==4 then mv={1,0} end
-    -- ...
+    -- apply movement
+    for k,cell in pairs(cells) do
+      move_wbc(cell,mv)
+    end
   end
 
+end
+
+-- stay in grid
+function gridloc(x,y)
+  if x<1 then x=gsx end
+  if x>gsx then x=1 end
+  if y<1 then y=gsy end
+  if y>gsy then y=1 end
+  return x,y
 end
 
 function grid_full()
@@ -474,12 +498,8 @@ function get_open_cells_from(x,y)
   local o={}
   for k,v in pairs(vecs) do
     -- stay in grid...
-    if v[1]<1 then v[1]=gsx end
-    if v[1]>gsx then v[1]=1 end
-    if v[2]<1 then v[2]=gsy end
-    if v[2]>gsy then v[2]=1 end
-    --
-    local c=get_cell_at(v[1],v[2])
+    local gx,gy=gridloc(v[1],v[2])
+    local c=get_cell_at(gx,gy)
     if not c then table.insert(o,vecs[k]) end
   end
   return o
@@ -491,13 +511,9 @@ function get_cross_neighbors(x,y)
     {x,y-1},{x,y+1},{x-1,y},{x+1,y}
   }
   for k,v in pairs(vecs) do
-    -- looping grid...
-    if v[1]<1 then v[1]=gsx end
-    if v[1]>gsx then v[1]=1 end
-    if v[2]<1 then v[2]=gsy end
-    if v[2]>gsy then v[2]=1 end
-    --
-    local cell=get_cell_at(v[1],v[2])
+    -- looping grid
+    local gx,gy=gridloc(v[1],v[2])
+    local cell=get_cell_at(gx,gy)
     if cell then table.insert(n,cell) end
   end
   --
@@ -511,12 +527,8 @@ function get_empty_cross_neighbors(x,y)
   }
   for k,v in pairs(vecs) do
     -- looping grid...
-    if v[1]<1 then v[1]=gsx end
-    if v[1]>gsx then v[1]=1 end
-    if v[2]<1 then v[2]=gsy end
-    if v[2]>gsy then v[2]=1 end
-    --
-    local cell=get_cell_at(v[1],v[2])
+    local gx,gy=gridloc(v[1],v[2])
+    local cell=get_cell_at(gx,gy)
     if not cell then table.insert(n,{v[1],v[2]}) end
   end
   --
@@ -530,12 +542,8 @@ function get_neighbor_coords(x,y)
   }
   for k,v in pairs(vecs) do
     -- looping grid...
-    if v[1]<1 then v[1]=gsx end
-    if v[1]>gsx then v[1]=1 end
-    if v[2]<1 then v[2]=gsy end
-    if v[2]>gsy then v[2]=1 end
-    --
-    table.insert(n,{v[1],v[2]})
+    local gx,gy=gridloc(v[1],v[2])
+    table.insert(n,{gx,gy})
   end
   --
   return n
@@ -570,6 +578,8 @@ function process_attack(wbc,wbc_index,bacteria,bacteria_index)
 end
 
 function get_cell_at(x,y)
+  -- stay in grid
+  x,y=gridloc(x,y)
   for k,cell in pairs(cells) do
     if cell.x==x and cell.y==y then return cell,k end
   end
@@ -578,21 +588,15 @@ end
 
 function get_target_loc(x,y)
   local tx=x+move.x
-  if tx<1 then tx=gsx end
-  if tx>gsx then tx=1 end
   local ty=y+move.y
-  if ty<1 then ty=gsy end
-  if ty>gsy then ty=1 end
+  tx,ty=gridloc(tx,ty)
   return tx, ty
 end
 
 function get_reverse_target_loc(x,y)
   local tx=x+-move.x
-  if tx<1 then tx=gsx end
-  if tx>gsx then tx=1 end
   local ty=y+-move.y
-  if ty<1 then ty=gsy end
-  if ty>gsy then ty=1 end
+  tx,ty=gridloc(tx,ty)
   return tx, ty
 end
 
