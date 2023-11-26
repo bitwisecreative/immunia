@@ -8,7 +8,8 @@ $(function(){
     gsy=4;
     spritesize=128;
     cells=[];
-    maxdepth=4; // levelgen
+    maxdepth=12; // levelgen
+    win_moves_run_limit=Math.pow(4,maxdepth);
     win_moves_runs=0;
   
     // mode
@@ -29,12 +30,19 @@ $(function(){
       gen_win_moves(state,'');
       console.log(state,win_moves);
       if(win_moves.length>0){
-        $.post('./',{state:state,win_moves:JSON.stringify(win_moves)});
-      }
-      if(mode=='#levelgen'){
-        setTimeout(function(){
-            location.reload();
-        },100);  
+        $.post('./',{state:state,win_moves:JSON.stringify(win_moves)}).done(function(){
+          if(mode=='#levelgen'){
+            setTimeout(function(){
+                location.reload();
+            },100);  
+          }
+        });
+      }else{
+        if(mode=='#levelgen'){
+          setTimeout(function(){
+              location.reload();
+          },100);  
+        }
       }
     }
   
@@ -78,32 +86,39 @@ $(function(){
     //
   
     function gen_win_moves(ss,seq){
+      // Just want the first win moves
+      if(win_moves.length>0){
+        return;
+      }
+      // counter and limiter
       win_moves_runs++;
-      // limiter?
-      if(win_moves_runs%100===0){
+      if(win_moves_runs%100000===0){
         console.log(win_moves_runs);
       }
-      if(win_moves_runs>5000){
+      if(win_moves_runs>win_moves_run_limit){
         return;
       }
       // max depth
-      if(seq.length>maxdepth){
+      if(seq.length>=maxdepth){
         return;
       }
       // test each move dir for game states
       let moves=[
-        [0,-1],
-        [0,1],
-        [-1,0],
-        [1,0]
+        [1,0,-1],
+        [2,0,1],
+        [3,-1,0],
+        [4,1,0]
       ];
+      // randomize order...
+      shuffle(moves);
       // check the moves
       for(let i=0;i<moves.length;i++){
         // set state
         state_string(ss);
-        move(moves[i][0],moves[i][1]);
+        let moveid=moves[i][0].toString();
+        move(moves[i][1],moves[i][2]);
         // sequence after move
-        let nseq=seq+(i+1).toString(); // (i+1) is the movement "id"
+        let nseq=seq+moveid;
         // win?
         if(count_cells_by_type('bacteria')==0){
           // push to external win_moves array
@@ -217,24 +232,18 @@ $(function(){
       for(i=0;i<nbacteria;i++){
         place_random('bacteria');
       }
-      // wbc no shields... chance to add random
+      // wbc 0 or 1 shields... chance to set random
+      // bacteria 2 or 3 shields... chance to remove random
       cells.forEach((e)=>{
         if(e.t=='wbc'){
-          for(i=0;i<4;i++){
-            if(rint(1,3)==1){
-              e.s[i]=rint(1,3);
-            }
-          }
+          e.s=[rint(0,1),rint(0,1),rint(0,1),rint(0,1)];
         }
-      });
-      // bacteria full shields... chance to remove random
-      cells.forEach((e)=>{
         if(e.t=='bacteria'){
-          e.s=[3,3,3,3];
-          for(i=0;i<4;i++){
-            if(rint(1,3)==1){
-              e.s[i]-=rint(1,3);
-            }
+          e.s=[rint(2,3),rint(2,3),rint(2,3),rint(2,3)];
+        }
+        for(i=0;i<4;i++){
+          if(rint(1,3)==1){
+            e.s[i]=rint(0,3);
           }
         }
       });
@@ -485,5 +494,16 @@ $(function(){
       max = Math.floor(max);
       return Math.floor(Math.random() * (max - min + 1)) + min;
     }
+
+    function shuffle(array) {
+      let currentIndex = array.length,  randomIndex;
+      while (currentIndex > 0) {
+        randomIndex = Math.floor(Math.random() * currentIndex);
+        currentIndex--;
+        [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+      }
+      return array;
+    }
+    
   
   });
