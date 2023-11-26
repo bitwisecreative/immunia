@@ -67,7 +67,11 @@ $(function(){
         `;
         $('#rate-send').html(rateSendSelect);
         $(document).on('change','#rate-send select',function(){
-          $.post('./',{rowid:d.rowid,rating:$(this).val()});
+          $.post('./',{rowid:d.rowid,rating:$(this).val()}).done(function(){
+            setTimeout(function(){
+              location.reload();
+            },100);  
+          });
         });
         state_string($('#statestring').val());
         draw_board();
