@@ -80,6 +80,97 @@ $(function(){
       state_string($('#statestring').val());
       draw_board();
     });
+    // Level Editor
+    $(document).on('click','.cell',function(){
+      $('.cell').removeClass('active');
+      $(this).addClass('active');
+      let x=$(this).data('x');
+      let y=$(this).data('y');
+      $('#edit-loc').text(x+','+y);
+      let cell=get_cell_at(x,y);
+      if(!cell){
+        $('.select-empty input').prop('checked',true);
+        $('.edit-shields input').val('');
+      }else{
+        if(cell.t=='blocked'){
+          $('.select-blocked input').prop('checked',true);
+          $('.edit-shields input').val('');
+        }
+        if(cell.t=='wbc'||cell.t=='bacteria'){
+          if(cell.t=='wbc'){
+            $('.select-wbc input').prop('checked',true);
+          }else{
+            $('.select-bacteria input').prop('checked',true);
+          }
+          $('#edit-up-shield').val(cell.s[0]);
+          $('#edit-down-shield').val(cell.s[1]);
+          $('#edit-left-shield').val(cell.s[2]);
+          $('#edit-right-shield').val(cell.s[3]);
+        }
+      }
+    });
+    function getEditLoc(){
+      let loc=$('#edit-loc').text();
+      if(!loc){
+        return false;
+      }
+      loc=loc.split(',');
+      let x=loc[0];
+      let y=loc[1];
+      return [x,y];
+    }
+    $('input[name="edit-type"]').on('change',function(){
+      let loc=getEditLoc();
+      if(!loc) return;
+      let x=loc[0];
+      let y=loc[1];
+      let type=$(this).val();
+      let cell_index=get_cell_index_at(x,y);
+      if(type=='empty'){
+        if(cell_index){
+          cells.splice(cell_index,1);
+        }
+      }else{
+        let new_cell=gen_cell(type,x,y);
+        if(type=='wbc'){
+          $('.edit-shields input').val(1);
+        }
+        if(type=='bacteria'){
+          new_cell.s=[3,3,3,3];
+          $('.edit-shields input').val(3);
+        }
+        if(!cell_index){
+          cells.push(new_cell);
+        }else{
+          cells[cell_index]=new_cell;
+        }
+      }
+      draw_board();
+    });
+    $('.edit-shields input').on('change',function(){
+      let loc=getEditLoc();
+      if(!loc) return;
+      let x=loc[0];
+      let y=loc[1];
+      let cell=get_cell_at(x,y);
+      if(!cell){
+        return false;
+      }
+      if(cell.t=='blocked'){
+        return false;
+      }
+      let id=$(this).attr('id');
+      let val=$(this).val();
+      let m={
+        'edit-up-shield':0,
+        'edit-down-shield':1,
+        'edit-left-shield':2,
+        'edit-right-shield':3,
+      };
+      cell.s[m[id]]=val;
+      //
+      draw_board();
+    });
   
     //
     // FUNCTIONS
@@ -431,23 +522,30 @@ $(function(){
       let dx=(cell.x-1)*spritesize;
       let dy=(cell.y-1)*spritesize;
       let shield='';
+      function draw_shield(n){
+        let s='';
+        for(let i=0;i<n;i++){
+          s+='█';
+        }
+        return s;
+      }
       if(cell.t=='wbc'||cell.t=='bacteria'){
         shield=`
           <div class="shield">
-            <div class="up">${cell.s[0]}</div>
-            <div class="down">${cell.s[1]}</div>
-            <div class="left">${cell.s[2]}</div>
-            <div class="right">${cell.s[3]}</div>
+            <div class="up">${draw_shield(cell.s[0])}</div>
+            <div class="down">${draw_shield(cell.s[1])}</div>
+            <div class="left">${draw_shield(cell.s[2])}</div>
+            <div class="right">${draw_shield(cell.s[3])}</div>
           </div>
         `;
       }
-      $('#game').append(`<div class="cell ${cell.t}" style="top:${dy}px;left:${dx}px;">${shield}</div>`);
+      $('#game').append(`<div class="cell ${cell.t}" data-x="${cell.x}" data-y="${cell.y}" style="top:${dy}px;left:${dx}px;">${shield}</div>`);
     }
   
     function draw_empty(x,y){
       let dx=(x-1)*spritesize;
       let dy=(y-1)*spritesize;
-      $('#game').append(`<div class="cell empty" style="top:${dy}px;left:${dx}px;"></div>`);
+      $('#game').append(`<div class="cell empty" data-x="${x}" data-y="${y}" style="top:${dy}px;left:${dx}px;"></div>`);
     }
   
     function place_random(type){
@@ -487,6 +585,15 @@ $(function(){
         }
       });
       return cell;
+    }
+
+    function get_cell_index_at(x,y){
+      for(let i=0;i<cells.length;i++){
+        if(cells[i].x==x && cells[i].y==y){
+          return i;
+        }
+      }
+      return false;
     }
   
     function rint(min, max) {

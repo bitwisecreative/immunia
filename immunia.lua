@@ -257,7 +257,7 @@ function draw_game()
       swipe.b=mb
     else
       if mb then
-        line(swipe.x,swipe.y,mx,my,1)
+        --line(swipe.x,swipe.y,mx,my,1)
         if mdir.y==-1 then
           draw_arrow('up')
         end

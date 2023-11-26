@@ -66,25 +66,112 @@ textarea {
 }
 .shield {
     font-weight: bold;
+    letter-spacing: 2px;
 }
 .up {
     position: absolute;
-    left: 44%;
+    left: 33%;
+    top: 8%;
+    transform: rotate(-90deg);
+    text-align: center;
+    width: 35px;
 }
 .down {
     position: absolute;
-    left: 44%;
-    bottom: 0;
+    left: 33%;
+    bottom: 8%;
+    transform: rotate(-90deg);
+    text-align: center;
+    width: 35px;
 }
 .left {
     position: absolute;
-    top: 38%;
-    left: 2px;
+    top: 40%;
+    left: 3%;
 }
 .right {
     position: absolute;
-    top: 38%;
-    right: 2px;
+    top: 40%;
+    right: 3%;
+}
+#cell-edit {
+    width: 300px;
+    height: 300px;
+    float: right;
+    margin: 10px 20px;
+    background: #333;
+    padding: 20px;
+}
+button{
+    padding:5px;
+    font-size:14px;
+}
+hr {
+    border: none;
+    background: none;
+    border-bottom: 1px solid #444;
+    border-top: 1px solid #111;
+}
+#cell-edit label{
+    display:inline-block;
+    margin:5px;
+    padding:5px;
+    width:110px;
+    font-weight:bold;
+    cursor:pointer;
+}
+label.select-wbc{
+    background: #529eff;
+    color:#222;
+}
+label.select-bacteria{
+    background: #9b3131;
+    color:#222;
+}
+label.select-blocked{
+    background: black;
+}
+.edit-shields {
+    position:relative;
+    height:80px;
+}
+.edit-shields input{
+    width:55px;
+    padding:2px;
+    font-weight:bold;
+    color:#eee;
+    background:#444;
+    font-size:16px;
+}
+#edit-up-shield{
+    position:absolute;
+    top:0;
+    left:102px;
+}
+#edit-down-shield{
+    position:absolute;
+    bottom:0;
+    left:102px;
+}
+#edit-left-shield{
+    position:absolute;
+    top:30px;
+    left:30px;
+}
+#edit-right-shield{
+    position:absolute;
+    right:30px;
+    top:30px;
+}
+#edit-loc {
+    color: #f0e986;
+    font-size: 20px;
+}
+label:has(input[type="radio"]:checked) {
+    outline:5px solid #f0e986;
+}
+.cell.active {
+    outline: 5px solid #f0e986;
 }
 </style>
 </head>
@@ -92,6 +179,22 @@ textarea {
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.1/jquery.min.js"></script>
 
 <div id="page">
+
+  <div id="cell-edit">
+    <div id="edit-loc"></div>
+    <hr />
+    <label class="select-empty"><input type="radio" name="edit-type" value="empty" />empty</label>
+    <label class="select-wbc"><input type="radio" name="edit-type" value="wbc" />wbc</label>
+    <label class="select-bacteria"><input type="radio" name="edit-type" value="bacteria" />bacteria</label>
+    <label class="select-blocked"><input type="radio" name="edit-type" value="blocked" />blocked</label>
+    <hr />
+    <div class="edit-shields">
+      <input id="edit-up-shield" type="number" min="0" max="3" step="1" />
+      <input id="edit-down-shield" type="number" min="0" max="3" step="1" />
+      <input id="edit-left-shield" type="number" min="0" max="3" step="1" />
+      <input id="edit-right-shield" type="number" min="0" max="3" step="1" />
+    </div>
+  </div>
 
   <div id="game"></div>
 
