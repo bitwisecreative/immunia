@@ -8,7 +8,7 @@ $(function(){
     gsy=4;
     spritesize=128;
     cells=[];
-    maxdepth=12; // levelgen
+    maxdepth=13; // levelgen
     win_moves_run_limit=Math.pow(4,maxdepth);
     win_moves_runs=0;
   
