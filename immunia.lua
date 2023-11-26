@@ -44,6 +44,9 @@ function BOOT()
   -- int won't overflow like pico8...
   f=0
 
+  -- current screen
+  screen='game'
+
   -- difficulty (1-5)
   difficulty=pmem(0)
   if not difficulty then difficulty=1 end
@@ -147,6 +150,13 @@ function TIC()
   f=f+1
   cls(0)
 
+  if screen=='game' then
+    draw_game()
+  end
+
+end
+
+function draw_game()
   -- frame
   rect(0,0,112,136,1)
   rect(0,128,240,8,1)
@@ -368,7 +378,6 @@ function TIC()
     -- move processed...
     move.p=true
   end
-
 end
 
 function levelgen()
@@ -389,7 +398,11 @@ function levelgen()
     return x,y
   end
 
-  -- difficulty (global) 1-5 affects number of moves
+  local function build_move(dir)
+
+  end
+
+  -- difficulty (global) 1-5 affects number of moves (shields)
   local p=difficulty*16
   local max=math.ceil(p/5)
   local min=max-difficulty
@@ -402,48 +415,132 @@ function levelgen()
     place_random_cell('blocked')
   end
 
-  -- place first random wbc
-  local wx,wy=place_random_cell('wbc')
-  trace('fwbc: '..wx..','..wy)
-
-  -- place first random bacteria (neighbor of first wbc)
-  local bn=get_empty_cross_neighbors(wx,wy)
-  tshuffle(bn)
-  local bnc=gen_cell('bacteria',bn[1][1],bn[1][2])
-  table.insert(cells,bnc)
-
-  -- support function that applies the levelgen movement to wbc...
-  local function move_wbc(cell,mv)
-    local to_x=cell.x+mv[1]
-    local to_y=cell.y+mv[2]
-    local to_n=get_cell_at(to_x,to_y)
-    if tn_n==nil then
-      cell.x=to_x
-      cell.y=to_y
-    else
-
-    end
+  -- generate and place wbc cells
+  local num_wbc=rint(2,math.ceil(num_moves/2))
+  for i=1,num_wbc do
+    place_random_cell('wbc')
   end
-  -- random moves and backfill the level
-  for i=1,num_moves do
-    if not grid_full() then
-      -- 33% chance to add wbc
-      if rint(1,3)==1 then place_random_cell('wbc') end
-      -- 33% chance to add bacteria
-      if rint(1,3)==1 then place_random_cell('bacteria') end
+
+  -- generate and place bacteria cells
+  local num_bacteria=rint(2,math.ceil(num_moves/2))
+  for i=1,num_bacteria do
+    place_random_cell('bacteria')
+  end
+
+  -- STRATEGY: randomly doing shields and stuff just doesn't work. You have to build the level step by step (forwards or backwards...)
+  -- Start with all bacteria shields full
+  local bacs=get_cells_by_type('bacteria')
+  for k,cell in pairs(bacs) do
+    cell.s={3,3,3,3}
+  end
+  -- Clone initial cells state
+  local initial_state=copy(cells)
+  -- Apply random movements and manipulate shields until wbcs win
+  while get_cell_count('bacteria')>0 and false do
+    local rm=rint(1,4) -- up,down,left,right
+    local mx=0
+    local my=0
+    if rm==1 then my=-1 end
+    if rm==2 then my=1 end
+    if rm==3 then mx=-1 end
+    if rm==4 then mx=1 end
+    move.x=mx
+    move.y=my
+    -- calc shield vecs (default up)
+    local attack_shield=1
+    local defend_shield=2
+    if rm==2 then
+      attack_shield=2
+      defend_shield=1
     end
-    -- up down left right
-    local d=rint(1,4)
-    local mv={}
-    if d==1 then mv={0,-1} end
-    if d==2 then mv={0,1} end
-    if d==3 then mv={-1,0} end
-    if d==4 then mv={1,0} end
-    -- apply movement
+    if rm==3 then
+      attack_shield=3
+      defend_shield=4
+    end
+    if rm==4 then
+      attack_shield=4
+      defend_shield=3
+    end
+    -- TODO: not DRY... copied from draw_game()
+    -- first, process wbc movement... multiple passes...
+    local wbcs={}
     for k,cell in pairs(cells) do
-      move_wbc(cell,mv)
+      if cell.t=='wbc' then table.insert(wbcs,{cell,k}) end
     end
+    local limit=0;
+    while not all_wbcs_processed(wbcs) do
+      limit=limit+1
+      if limit>20 then
+        trace('!!!WBC MOVE WHILE LOOP LIMIT BROKEN!!!')
+        break
+      end
+      for k,wbc in pairs(wbcs) do
+        local cell=wbc[1]
+        if cell.p==0 then
+          local tx,ty=get_target_loc(cell.x,cell.y)
+          local target=get_cell_at(tx,ty)
+          if not target then -- empty -- can move (wbc can only move when empty...)
+            -- move wbc
+            cell.x=tx
+            cell.y=ty
+            cell.p=1
+          else
+            if target.t~='wbc' or target.p>0 then -- if target is not wbc, or wbc is processed...
+              cell.p=2
+            end
+          end
+        end
+      end
+    end
+    -- next, process attacking...
+    for k,wbc in pairs(wbcs) do
+      local cell=wbc[1]
+      local cell_index=wbc[2]
+      if cell.p==2 then
+        local tx,ty=get_target_loc(cell.x,cell.y)
+        local target,target_index=get_cell_at(tx,ty)
+        if target then
+          -- bacteria
+          if target.t=='bacteria' then
+            local av=0 -- attacking shield
+            local dv=0 -- defending shield
+            if move.x<0 then
+              av=3
+              dv=4
+            end
+            if move.x>0 then
+              av=4
+              dv=3
+            end
+            if move.y<0 then
+              av=1
+              dv=2
+            end
+            if move.y>0 then
+              av=2
+              dv=1
+            end
+            -- wbc attack
+            wbc.s[av]=wbc.s[av]+1
+            if wbc.s[av]>3 then wbc.s[av]=3 end
+            -- bacteria defend
+            bacteria.s[dv]=bacteria.s[dv]-1
+            if bacteria.s[dv]<0 then table.insert(move.d,bacteria_index) end -- bacteria died
+            cell.p=3
+          end
+        end
+      end
+    end
+    -- process cells to destroy
+    -- (mark them nil, then "clean" the table at the very end of TIC())
+    for k,v in pairs(move.d) do
+      cells[v]=nil
+    end
+    -- clean cells table
+    tclean(cells)
+    
   end
+  
 
 end
 
@@ -478,6 +575,14 @@ function get_cell_count(type)
   local c=0
   for k,cell in pairs(cells) do
     if cell and cell.t==type then c=c+1 end
+  end
+  return c
+end
+
+function get_cells_by_type(type)
+  local c={}
+  for k,cell in pairs(cells) do
+    if cell.t==type then table.insert(c,cell) end
   end
   return c
 end
@@ -1006,12 +1111,12 @@ end
 -- 153:0111101010111010110110101111101011110010000001101111110000000000
 -- 154:0101111001011101010110110101111101001111011000000011111100000000
 -- 155:0111101010111010110110101111101011110010000001101111110000000000
--- 161:0000000100000011000001110000111400011144001114440111444411144444
--- 162:1000000011000000111000004111000044111000444111004444111044444111
--- 176:0000000100000011000001110000111400011144001114440111111101111111
--- 177:1144444414444444444444444444444444444444444444441111111111111111
--- 178:4444441144444441444444444444444444444444444444441111111111111111
--- 179:1000000011000000111000004111000044111000444111001111111011111110
+-- 161:0000000100000011000001110000111500011155001115550111555511155555
+-- 162:1000000011000000111000005111000055111000555111005555111055555111
+-- 176:0000000100000011000001110000111500011155001115550111111101111111
+-- 177:1155555515555555555555555555555555555555555555551111111111111111
+-- 178:5555551155555551555555555555555555555555555555551111111111111111
+-- 179:1000000011000000111000005111000055111000555111001111111011111110
 -- 192:0001100000100100111001111000000101000010100000011001100111100111
 -- 193:0001100000144100111441111444444101444410144444411441144111100111
 -- 240:4444444444444444411444444111111441144114411441144111111444444444
