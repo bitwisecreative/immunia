@@ -45,6 +45,34 @@ $(function(){
         }
       }
     }
+
+    if(mode=='#play_and_rate'){
+      $.get('./?rate=1').done(function(d){
+        if(typeof d=='string'){
+          d=JSON.parse(d);
+        }
+        console.log(d);
+        $('#rate-rowid').text('Rating ROWID: '+d.rowid);
+        $('#statestring').val(d.state);
+        let options='<option disabled selected></option>';
+        for(let i=0;i<11;i++){
+          options+=`
+            <option value="${i}">${i}</option>
+          `;
+        }
+        let rateSendSelect=`
+          <select id="rate-send">
+            ${options}
+          </select>
+        `;
+        $('#rate-send').html(rateSendSelect);
+        $(document).on('change','#rate-send select',function(){
+          $.post('./',{rowid:d.rowid,rating:$(this).val()});
+        });
+        state_string($('#statestring').val());
+        draw_board();
+      });
+    }
   
     //
     // EVENTS

@@ -1,11 +1,38 @@
 <?php
-// API data write
-if(isset($_POST['state'])&&isset($_POST['win_moves'])){
+// API
+
+function getDb(){
   $pdo=new PDO('sqlite:immunia_levelgen.db');
   $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+  return $pdo;
+}
+
+// Write new level
+if(isset($_POST['state'])&&isset($_POST['win_moves'])){
+  $pdo=getDb();
   $q='insert into levels(state,win_moves) values(?,?)';
   $s=$pdo->prepare($q);
   $s->execute([$_POST['state'],$_POST['win_moves']]);
+  exit;
+}
+
+// Get unrated level
+if(isset($_GET['rate'])){
+  $pdo=getDb();
+  $q='select rowid,* from levels where rating is null limit 1';
+  $s=$pdo->prepare($q);
+  $s->execute();
+  $r=$s->fetch();
+  echo json_encode($r);
+  exit;
+}
+
+// Write rating
+if(isset($_POST['rowid'])&&isset($_POST['rating'])){
+  $pdo=getDb();
+  $q='update levels set rating=? where rowid=?';
+  $s=$pdo->prepare($q);
+  $s->execute([$_POST['rating'],$_POST['rowid']]);
   exit;
 }
 ?>
@@ -173,6 +200,9 @@ label:has(input[type="radio"]:checked) {
 .cell.active {
     outline: 5px solid #f0e986;
 }
+#rate-rowid{
+  color:#f0e986;
+}
 </style>
 </head>
 <body>
@@ -211,6 +241,12 @@ label:has(input[type="radio"]:checked) {
 
   <p>
     <a href="#levelgen">Run Levelgen Program Continuous</a>
+  </p>
+
+  <p>
+    <a href="#play_and_rate">Play and Rate</a><br />
+    <div id="rate-rowid"></div>
+    <div id="rate-send"></div>
   </p>
 
   <p>
