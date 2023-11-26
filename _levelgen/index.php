@@ -1,3 +1,14 @@
+<?php
+// API data write
+if(isset($_POST['state'])&&isset($_POST['win_moves'])){
+  $pdo=new PDO('sqlite:immunia_levelgen.db');
+  $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+  $q='insert into levels(state,win_moves) values(?,?)';
+  $s=$pdo->prepare($q);
+  $s->execute([$_POST['state'],$_POST['win_moves']]);
+  exit;
+}
+?>
 <!doctype html>
 <html lang="en" data-theme="dark">
 <head>
@@ -86,6 +97,8 @@ $(function(){
   gen_random_board();
   state_string();
   draw_board();
+
+  // $.post('./',{state:'test123',win_moves:'[1234],[4321],[1122],[2233],[3321]'});
 
   //
   // EVENTS
