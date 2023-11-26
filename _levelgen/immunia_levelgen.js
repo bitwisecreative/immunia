@@ -133,7 +133,7 @@ $(function(){
       }else{
         let new_cell=gen_cell(type,x,y);
         if(type=='wbc'){
-          $('.edit-shields input').val(1);
+          $('.edit-shields input').val(0);
         }
         if(type=='bacteria'){
           new_cell.s=[3,3,3,3];
