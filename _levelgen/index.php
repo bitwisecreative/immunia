@@ -80,7 +80,11 @@ $(function(){
   spritesize=128;
   cells=[];
 
+  let str='w1232,b3212,e,e,e,x,e,e,e,e,x,e,x,e,e,e';
+  //state_string(str);
+
   gen_random_board();
+  state_string();
   draw_board();
 
   //
@@ -106,6 +110,81 @@ $(function(){
   //
   // FUNCTIONS
   //
+
+  // build state from string, or return current state as string
+  function state_string(str){
+    if(str){
+      console.log(str);
+      let a=str.split(',');
+      if(a.length!=gsx*gsy){
+        throw new Error('State string: invalid length.');
+      }
+      cells=[];
+      let tok=['e','x','w','b'];
+      for(let i=0;i<a.length;i++){
+        let x=(i%gsx)+1;
+        let y=(Math.floor(i/gsy))+1;
+        console.log(x,y);
+        let t=a[i].substring(0,1);
+        console.log(t);
+        if(tok.indexOf(t)<0){
+          throw new Error('State string: invalid type.');
+        }
+        // shields
+        if(t=='w'||t=='b'){
+          if(a[i].length!==5){
+            throw new Error('State string: invalid cell data (shield).');
+          }
+          let type='wbc';
+          if(t=='b'){
+            type='bacteria';
+          }
+          let shield=[0,0,0,0];
+          for(s=0;s<4;s++){
+            let v=+a[i].substring(s+1,s+2);
+            shield[s]=v;
+          }
+          let cell=gen_cell(type,x,y);
+          cell.s=shield;
+          cells.push(cell);
+        }
+        if(t=='x'){
+          let cell=gen_cell('blocked',x,y);
+          cells.push(cell);
+        }
+      }
+    }else{
+      let out=[];
+      for(y=0;y<gsy;y++){
+        for(x=0;x<gsx;x++){
+          let cx=x+1;
+          let cy=y+1;
+          let cell=get_cell_at(cx,cy);
+          if(cell){
+            let v='';
+            if(cell.t=='blocked'){
+              v='x';
+            }
+            if(cell.t=='wbc'){
+              v='w';
+            }
+            if(cell.t=='bacteria'){
+              v='b';
+            }
+            if(cell.t=='wbc'||cell.t=='bacteria'){
+              v+=cell.s.join('');
+            }
+            out.push(v);
+          }else{
+            out.push('e');
+          }
+        }
+      }
+      let outstr=out.join(',');
+      console.log(outstr);
+      return outstr;
+    }
+  }
 
   function gen_random_board(){
     // cell counts
