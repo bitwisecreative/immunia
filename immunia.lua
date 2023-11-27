@@ -10,7 +10,7 @@
 -- requires "menu:" meta tag above...
   -- I tried everything to find a way to force open the TIC-80 game menu from code, including scouring the source code for holes.
   -- I found nada... Best bet is to create a custom menu that can be accessed by ` key or clicking menu button or a custom menu item in TIC-80 menu.
-  -- Not impressed with TIC-80 mobile web implementation...
+  -- TIC-80 mobile web implementation could use some improvements...
 function opengamemenu()
   trace("Open Game Menu")
 end
@@ -28,19 +28,13 @@ function BOOT()
   -- Probably just set to the max solve length for all levels :P
   -- 13 moves...
 
+  -- TODO: move handler needs the 4-in-a-row update...
+
+  -- TODO: remove funcs that support random level generateion. No need to randomly generate levels here, the _levelgen tools are for that. You can keep testmap that simply loads a state string...
+
   -- pmem map
-  -- 0 = selected difficulty
-  -- 1 = d1 wins
-  -- 2 = d2 wins
-  -- 3 = d3 wins
-  -- 4 = d4 wins
-  -- 5 = d5 wins
-  -- 6 = d1 losses
-  -- 7 = d2 losses
-  -- 8 = d3 losses
-  -- 9 = d4 losses
-  -- 10 = d5 losses
-  -- 11 = bgm setting
+  -- 0 = bgm
+  -- 1 = current level
 
   -- seed rng
   math.randomseed(tstamp())
@@ -50,13 +44,6 @@ function BOOT()
 
   -- current screen
   screen='game'
-
-  -- difficulty (1-5)
-  difficulty=pmem(0)
-  if not difficulty then difficulty=1 end
-  difficulty=clamp(difficulty,1,5)
-  difficulty=rint(1,5)
-  trace('difficulty: '..difficulty)
 
   -- screen size
   sw=240
@@ -90,67 +77,36 @@ function BOOT()
     b=false
   }
 
-  -- test maps...
-  -- 0:empty,1:wbc,2:bacteria,3:blocked
-  testmaps={
-    wbc={
-      {2,3,0,0},
-      {0,0,0,0},
-      {0,0,0,1},
-      {0,0,0,0}
-    },
-    debug={
-      {0,0,0,0},
-      {0,0,0,0},
-      {0,0,0,0},
-      {0,0,0,0}
-    }
-  }
-  testmap='wbc'
-  -- you can do testmap='random' also...
-  testmap=false
-  --testmap='random'
+  -- testmap
+  testmap='w0000,w1111,w2222,w3333,,,,,,,,,,,,x' -- state_string...
+  --testmap=false
 
-  -- start bgm
-  --music(0)
+  -- bgm
+  -- music(0)
 
   -- tiny font
   tf=tfont:new()
 
-  -- difficulty level 1 through 5 stars
-  -- level gen dev...
-  if not testmap then
-    levelgen()
-  end
+  -- set global levels var
+  set_levels()
+  -- get current level
+  level=pmem(0)
+  if level<1 then level=1 end
+  -- random level if maxed
+  if level>=#levels then level=rint(1,#levels) end
+  level_string=levels[level]
+  -- testmap?
+  if testmap then level_string=testmap end
 
-  -- populate (grid style)
-  if testmap then
-    for y=1,gsy do
-      for x=1,gsx do
-        local r=0
-        if testmap=='random' then
-          if rint(1,2)==1 then -- chance for cell on random testmap
-            r=rint(1,3)
-          end
-        else
-          r=testmaps[testmap][y][x]
-        end
-        if r>0 then
-          if r==1 then t='wbc' end
-          if r==2 then t='bacteria' end
-          if r==3 then t='blocked' end
-          local cell=gen_cell(t,x,y)
-          set_random_shield(cell)
-          table.insert(cells,cell)
-        end
-      end
-    end
-  end
+  -- generate cells
+  state_string(level_string)
+  --trace(state_string())
 
 end
 
 -- WHAMMY!
 function TIC()
+
   f=f+1
   cls(0)
 
@@ -158,6 +114,71 @@ function TIC()
     draw_game()
   end
 
+end
+
+-- build state from string, or return current state as string
+function state_string(str)
+  if str then
+    local a = split(str, ',')
+    if #a ~= gsx * gsy then
+      error('State string: invalid length.')
+    end
+    cells = {}
+    local tok = {'', 'x', 'w', 'b'}
+    for i = 1, #a do
+      local gv=i-1
+      local x=(gv%gsx)+1;
+      local y=(math.floor(gv/gsy))+1;
+      local t = string.sub(a[i], 1, 1)
+      if not tcontains(tok, t) then
+        error('State string: invalid type.')
+      end
+      -- shields
+      if t == 'w' or t == 'b' then
+        if string.len(a[i]) ~= 5 then
+          error('State string: invalid cell data (shield).')
+        end
+        local type = t == 'w' and 'wbc' or 'bacteria'
+        local shield = {0, 0, 0, 0}
+        for s = 1, 4 do
+          local v = tonumber(string.sub(a[i], s + 1, s + 1))
+          shield[s] = v
+        end
+        local cell = gen_cell(type, x, y)
+        cell.s = shield
+        table.insert(cells, cell)
+      end
+      if t == 'x' then
+        local cell = gen_cell('blocked', x, y)
+        table.insert(cells, cell)
+      end
+    end
+  else
+    local out = {}
+    for y = 1, gsy do
+      for x = 1, gsx do
+        local cell = get_cell_at(x, y)
+        if cell then
+          local v = ''
+          if cell.t == 'blocked' then
+            v = 'x'
+          elseif cell.t == 'wbc' then
+            v = 'w'
+          elseif cell.t == 'bacteria' then
+            v = 'b'
+          end
+          if cell.t == 'wbc' or cell.t == 'bacteria' then
+            v = v .. table.concat(cell.s)
+          end
+          table.insert(out, v)
+        else
+          table.insert(out, '')
+        end
+      end
+    end
+    local outstr = table.concat(out, ',')
+    return outstr
+  end
 end
 
 function draw_game()
@@ -286,7 +307,7 @@ function draw_game()
   local debugx=2
   local debugy=18
   local debugc=5
-  tf:print('difficulty: '..difficulty,debugx,debugy,debugc)
+  tf:print('level: '..level,debugx,debugy,debugc)
   tf:print('move: '..move.x..','..move.y..','..move.n,debugx,debugy+4,debugc)
   tf:print('mouse: '..mx..','..my..','..bint(mb),debugx,debugy+8,debugc)
   tf:print('swipe: '..swipe.x..','..swipe.y..','..bint(swipe.b),debugx,debugy+12,debugc)
@@ -384,170 +405,6 @@ function draw_game()
   end
 end
 
-function levelgen()
-
-  local function place_random_cell(t)
-    local added=false
-    local x,y
-    while not added do
-      x=rint(1,gsx)
-      y=rint(1,gsy)
-      local c=get_cell_at(x,y)
-      if not c then
-        local cell=gen_cell(t,x,y)
-        added=true
-        table.insert(cells,cell)
-      end
-    end
-    return x,y
-  end
-
-  local function build_move(dir)
-
-  end
-
-  -- difficulty (global) 1-5 affects number of moves (shields)
-  local p=difficulty*16
-  local max=math.ceil(p/5)
-  local min=max-difficulty
-  local num_moves=rint(min,max)
-  trace('moves: '..min..','..max)
-
-  -- generate and place blocked cells
-  local num_blocked=rint(0,3)
-  for i=1,num_blocked do
-    place_random_cell('blocked')
-  end
-
-  -- generate and place wbc cells
-  local num_wbc=rint(2,math.ceil(num_moves/2))
-  for i=1,num_wbc do
-    place_random_cell('wbc')
-  end
-
-  -- generate and place bacteria cells
-  local num_bacteria=rint(2,math.ceil(num_moves/2))
-  for i=1,num_bacteria do
-    place_random_cell('bacteria')
-  end
-
-  -- STRATEGY: randomly doing shields and stuff just doesn't work. You have to build the level step by step (forwards or backwards...)
-  -- Start with all bacteria shields full
-  local bacs=get_cells_by_type('bacteria')
-  for k,cell in pairs(bacs) do
-    cell.s={3,3,3,3}
-  end
-  -- Clone initial cells state
-  local initial_state=copy(cells)
-  -- Apply random movements and manipulate shields until wbcs win
-  while get_cell_count('bacteria')>0 and false do
-    local rm=rint(1,4) -- up,down,left,right
-    local mx=0
-    local my=0
-    if rm==1 then my=-1 end
-    if rm==2 then my=1 end
-    if rm==3 then mx=-1 end
-    if rm==4 then mx=1 end
-    move.x=mx
-    move.y=my
-    -- calc shield vecs (default up)
-    local attack_shield=1
-    local defend_shield=2
-    if rm==2 then
-      attack_shield=2
-      defend_shield=1
-    end
-    if rm==3 then
-      attack_shield=3
-      defend_shield=4
-    end
-    if rm==4 then
-      attack_shield=4
-      defend_shield=3
-    end
-    -- TODO: not DRY... copied from draw_game()
-    -- first, process wbc movement... multiple passes...
-    local wbcs={}
-    for k,cell in pairs(cells) do
-      if cell.t=='wbc' then table.insert(wbcs,{cell,k}) end
-    end
-    local limit=0;
-    while not all_wbcs_processed(wbcs) do
-      limit=limit+1
-      if limit>20 then
-        trace('!!!WBC MOVE WHILE LOOP LIMIT BROKEN!!!')
-        break
-      end
-      for k,wbc in pairs(wbcs) do
-        local cell=wbc[1]
-        if cell.p==0 then
-          local tx,ty=get_target_loc(cell.x,cell.y)
-          local target=get_cell_at(tx,ty)
-          if not target then -- empty -- can move (wbc can only move when empty...)
-            -- move wbc
-            cell.x=tx
-            cell.y=ty
-            cell.p=1
-          else
-            if target.t~='wbc' or target.p>0 then -- if target is not wbc, or wbc is processed...
-              cell.p=2
-            end
-          end
-        end
-      end
-    end
-    -- next, process attacking...
-    for k,wbc in pairs(wbcs) do
-      local cell=wbc[1]
-      local cell_index=wbc[2]
-      if cell.p==2 then
-        local tx,ty=get_target_loc(cell.x,cell.y)
-        local target,target_index=get_cell_at(tx,ty)
-        if target then
-          -- bacteria
-          if target.t=='bacteria' then
-            local av=0 -- attacking shield
-            local dv=0 -- defending shield
-            if move.x<0 then
-              av=3
-              dv=4
-            end
-            if move.x>0 then
-              av=4
-              dv=3
-            end
-            if move.y<0 then
-              av=1
-              dv=2
-            end
-            if move.y>0 then
-              av=2
-              dv=1
-            end
-            -- wbc attack
-            wbc.s[av]=wbc.s[av]+1
-            if wbc.s[av]>3 then wbc.s[av]=3 end
-            -- bacteria defend
-            bacteria.s[dv]=bacteria.s[dv]-1
-            if bacteria.s[dv]<0 then table.insert(move.d,bacteria_index) end -- bacteria died
-            cell.p=3
-          end
-        end
-      end
-    end
-    -- process cells to destroy
-    -- (mark them nil, then "clean" the table at the very end of TIC())
-    for k,v in pairs(move.d) do
-      cells[v]=nil
-    end
-    -- clean cells table
-    tclean(cells)
-    
-  end
-  
-
-end
-
 -- stay in grid
 function gridloc(x,y)
   if x<1 then x=gsx end
@@ -555,16 +412,6 @@ function gridloc(x,y)
   if y<1 then y=gsy end
   if y>gsy then y=1 end
   return x,y
-end
-
-function grid_full()
-  for y=1,gsy do
-    for x=1,gsx do
-      local c=get_cell_at(x,y)
-      if not c then return false end
-    end
-  end
-  return true
 end
 
 function clone_shield(from,to)
@@ -939,9 +786,7 @@ function split(str,sep)
    end
   end
  end
- if s~='' then
-  table.insert(t,s)
- end
+ table.insert(t,s)
  return t
 end
 tfont={}
@@ -993,8 +838,8 @@ function tfont:print(s,x,y,c,o)
   end
 end
 
-function get_level(level)
-  local levels={
+function set_levels()
+  levels={
     'x,x,b2033,w0000,w0220,,w0100,,b0222,b3332,,w0100,,w0003,,',
     ',,w1003,,w0130,b3302,,b3132,,,w3000,,,b1333,,x',
     'x,,,,,,,,,x,,,b3330,,,w0000',
@@ -1618,7 +1463,6 @@ function get_level(level)
     'b2231,,,,,,w1110,,b3032,w3011,b3202,,,b1203,b3213,',
     'w0101,b2223,b2021,,,x,x,w0132,w0101,x,b2033,,,w0001,b2223,b3332'
   }
-  return levels[level]
 end
 
 -- <TILES>
