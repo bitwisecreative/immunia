@@ -24,6 +24,9 @@ function BOOT()
 
   trace('-- BOOT --')
 
+  -- TODO: Hi! So, now that you have solve data... you can limit the puzzles to n moves before the bacteria divides! that'll make the puzzles more difficult ;)
+  -- Probably just set to the max solve length for all levels :P
+
   -- pmem map
   -- 0 = selected difficulty
   -- 1 = d1 wins
