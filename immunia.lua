@@ -6,6 +6,11 @@
 -- version: 0.1
 -- script:  lua
 
+-- TODO: title screen
+-- TODO: tutorial
+-- TODO: win/lose
+-- TODO: move anims and such
+
 -- menu: OPEN
 -- requires "menu:" meta tag above...
   -- I tried everything to find a way to force open the TIC-80 game menu from code, including scouring the source code for holes.
@@ -23,10 +28,6 @@ end
 function BOOT()
 
   trace('-- BOOT --')
-
-  -- TODO: Hi! So, now that you have solve data... you can limit the puzzles to n moves before the bacteria divides! that'll make the puzzles more difficult ;)
-  -- Probably just set to the max solve length for all levels :P
-  -- 13 moves...
 
   -- pmem map
   -- 0 = bgm
@@ -54,7 +55,7 @@ function BOOT()
 
   -- move
   movespeed=9
-  movesperlevel=13
+  movesperlevel=13 -- this was max solution moves from _levelgen db
   move={
     n=movesperlevel,
     p=false, -- processed
@@ -283,7 +284,6 @@ function draw_game()
     local bacteria_cells=get_cell_count('bacteria')
     if bacteria_cells==0 then
       trace('win')
-      -- todo inc wins
       reset()
     else
       -- check game over
@@ -291,7 +291,6 @@ function draw_game()
       if wbc_cells==0 then
         reset()
         trace('lose')
-        -- todo inc losses
       end
     end
     process_division()
@@ -653,7 +652,6 @@ end
 function draw_cell(c)
   local sx=(c.x-1)*32+112
   local sy=(c.y-1)*32
-  -- todo: move anims?
   local sprnum=0 -- wbc
   local drawshield=false
   local shieldcolor=1
