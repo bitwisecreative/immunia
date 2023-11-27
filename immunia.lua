@@ -28,8 +28,6 @@ function BOOT()
   -- Probably just set to the max solve length for all levels :P
   -- 13 moves...
 
-  -- TODO: remove funcs that support random level generateion. No need to randomly generate levels here, the _levelgen tools are for that. You can keep testmap that simply loads a state string...
-
   -- pmem map
   -- 0 = bgm
   -- 1 = current level
@@ -56,8 +54,9 @@ function BOOT()
 
   -- move
   movespeed=9
+  movesperlevel=13
   move={
-    n=0,
+    n=movesperlevel,
     p=false, -- processed
     x=0,
     y=0,
@@ -123,6 +122,21 @@ function draw_game()
   print("Immunia",3,5,2,false,2)
   print("Immunia",3,3,10,false,2)
   print("Immunia",3,4,0,false,2)
+  line(3,18,76,18,0)
+
+  -- level
+  print("Level: ",3,30,0,false,1)
+  print(numpad(level,3),38,30,10,false,1)
+
+  -- division
+  print("Bacteria",3,46,0,false,1)
+  print("Division:",3,54,0,false,1)
+  for ty=-1,1 do
+    for tx=-1,1 do
+      print(numpad(move.n,2),55+tx,48+ty,0,false,2)
+    end
+  end
+  print(numpad(move.n,2),55,48,2,false,2)
 
   -- ;)
   bxoffset=1
@@ -149,25 +163,25 @@ function draw_game()
       move.x=0
       move.y=-1
       move.f=f
-      move.n=move.n+1
+      move.n=move.n-1
     end
     if btnp(1) or keyp(19) then
       move.x=0
       move.y=1
       move.f=f
-      move.n=move.n+1
+      move.n=move.n-1
     end
     if btnp(2) or keyp(1) then
       move.x=-1
       move.y=0
       move.f=f
-      move.n=move.n+1
+      move.n=move.n-1
     end
     if btnp(3) or keyp(4) then
       move.x=1
       move.y=0
       move.f=f
-      move.n=move.n+1
+      move.n=move.n-1
     end
     -- Swipe
     local mdir={
@@ -237,7 +251,7 @@ function draw_game()
   end
   -- debug
   local debugx=2
-  local debugy=18
+  local debugy=200
   local debugc=5
   tf:print('level: '..level,debugx,debugy,debugc)
   tf:print('move: '..move.x..','..move.y..','..move.n,debugx,debugy+4,debugc)
@@ -280,6 +294,7 @@ function draw_game()
         -- todo inc losses
       end
     end
+    process_division()
     -- move processed...
     move.p=true
   end
@@ -466,6 +481,21 @@ function process_move(x, y)
   end
 end
 
+function process_division()
+  if move.n<0 then
+    move.n=movesperlevel
+    local bacs=get_cells_by_type('bacteria')
+    for _,cell in pairs(bacs) do
+      local open=get_empty_cross_neighbors(cell.x,cell.y)
+      if #open>0 then
+        local nc=gen_cell('bacteria',open[1][1],open[1][2])
+        nc.s=copy(cell.s)
+        table.insert(cells,nc)
+      end
+    end
+  end
+end
+
 -- stay in grid
 function gridloc(x,y)
   if x<1 then x=gsx end
@@ -590,7 +620,6 @@ function reset_move()
   move.y=0
   move.f=0
   move.p=false
-  move.d={}
 end
 
 function reset_cell_processed()
