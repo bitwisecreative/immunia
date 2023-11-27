@@ -479,10 +479,6 @@ function clone_shield(from,to)
   to.s=copy(from.s)
 end
 
-function set_random_shield(cell)
-  for i=1,4 do cell.s[i]=rint(0,3) end
-end
-
 function get_cell_count(type)
   local c=0
   for k,cell in pairs(cells) do
@@ -566,34 +562,6 @@ function get_neighbor_coords(x,y)
   return n
 end
 
-function process_attack(wbc,wbc_index,bacteria,bacteria_index)
-  --trace('ATTACK: '..wbc_index..'->'..bacteria_index)
-  local av=0 -- attacking shield
-  local dv=0 -- defending shield
-  if move.x<0 then
-    av=3
-    dv=4
-  end
-  if move.x>0 then
-    av=4
-    dv=3
-  end
-  if move.y<0 then
-    av=1
-    dv=2
-  end
-  if move.y>0 then
-    av=2
-    dv=1
-  end
-  -- wbc attack
-  wbc.s[av]=wbc.s[av]-1
-  if wbc.s[av]<0 then table.insert(move.d,wbc_index) end -- wbc died
-  -- bacteria defend
-  bacteria.s[dv]=bacteria.s[dv]-1
-  if bacteria.s[dv]<0 then table.insert(move.d,bacteria_index) end -- bacteria died
-end
-
 function get_cell_at(x,y)
   -- stay in grid
   x,y=gridloc(x,y)
@@ -615,14 +583,6 @@ function get_reverse_target_loc(x,y)
   local ty=y+-move.y
   tx,ty=gridloc(tx,ty)
   return tx, ty
-end
-
-function all_wbcs_processed(wbcs)
-  for k,wbc in pairs(wbcs) do
-    local cell=wbc[1]
-    if cell.p==0 then return false end
-  end
-  return true
 end
 
 function reset_move()
