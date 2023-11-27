@@ -203,6 +203,10 @@ label:has(input[type="radio"]:checked) {
 #rate-rowid{
   color:#f0e986;
 }
+select#rate-send {
+    font-size: 20px;
+    padding: 4px;
+}
 </style>
 </head>
 <body>
