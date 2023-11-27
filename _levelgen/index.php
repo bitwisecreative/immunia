@@ -35,6 +35,27 @@ if(isset($_POST['rowid'])&&isset($_POST['rating'])){
   $s->execute([$_POST['rating'],$_POST['rowid']]);
   exit;
 }
+
+// Misc tools...
+if(isset($_GET['tools'])){
+  $pdo=getDb();
+  // longest soluition length in db
+  $q='select * from levels where rating>0';
+  $s=$pdo->prepare($q);
+  $s->execute();
+  $r=$s->fetchAll();
+  $longest='';
+  foreach($r as $d){
+    $a=json_decode($d['win_moves'],true);
+    foreach($a as $w){
+      if(strlen($w)>strlen($longest)){
+        $longest=$w;
+      }
+    }
+  }
+  echo $longest;
+  exit;
+}
 ?>
 <!doctype html>
 <html lang="en" data-theme="dark">
