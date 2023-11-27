@@ -274,7 +274,7 @@ $(function(){
           throw new Error('State string: invalid length.');
         }
         cells=[];
-        let tok=['e','x','w','b'];
+        let tok=['','x','w','b'];
         for(let i=0;i<a.length;i++){
           let x=(i%gsx)+1;
           let y=(Math.floor(i/gsy))+1;
@@ -330,7 +330,7 @@ $(function(){
               }
               out.push(v);
             }else{
-              out.push('e');
+              out.push('');
             }
           }
         }
