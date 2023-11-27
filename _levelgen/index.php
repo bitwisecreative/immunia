@@ -39,21 +39,41 @@ if(isset($_POST['rowid'])&&isset($_POST['rating'])){
 // Misc tools...
 if(isset($_GET['tools'])){
   $pdo=getDb();
-  // longest soluition length in db
-  $q='select * from levels where rating>0';
-  $s=$pdo->prepare($q);
-  $s->execute();
-  $r=$s->fetchAll();
-  $longest='';
-  foreach($r as $d){
-    $a=json_decode($d['win_moves'],true);
-    foreach($a as $w){
-      if(strlen($w)>strlen($longest)){
-        $longest=$w;
-      }
+  $out='';
+  header('content-type:text/plain');
+
+  // Get all levels in order...
+  if(true){
+    $q='select * from levels where rating>0 order by rating asc, rowid asc';
+    $s=$pdo->prepare($q);
+    $s->execute();
+    $r=$s->fetchAll();
+    $out='';
+    foreach($r as $d){
+      $out.=$d['state']."\n";
     }
   }
-  echo $longest;
+
+  // longest soluition length in db
+  if(false){
+    $q='select * from levels where rating>0';
+    $s=$pdo->prepare($q);
+    $s->execute();
+    $r=$s->fetchAll();
+    $longest='';
+    foreach($r as $d){
+      $a=json_decode($d['win_moves'],true);
+      foreach($a as $w){
+        if(strlen($w)>strlen($longest)){
+          $longest=$w;
+        }
+      }
+    }
+    $out='longest solution: '.$longest;
+  }
+
+  // Output
+  echo $out;
   exit;
 }
 ?>
