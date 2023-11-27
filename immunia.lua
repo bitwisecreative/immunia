@@ -28,8 +28,6 @@ function BOOT()
   -- Probably just set to the max solve length for all levels :P
   -- 13 moves...
 
-  -- TODO: move handler needs the 4-in-a-row update...
-
   -- TODO: remove funcs that support random level generateion. No need to randomly generate levels here, the _levelgen tools are for that. You can keep testmap that simply loads a state string...
 
   -- pmem map
@@ -63,8 +61,7 @@ function BOOT()
     p=false, -- processed
     x=0,
     y=0,
-    f=0,
-    d={} -- destroy cell ids
+    f=0
   }
 
   arrowblink={false,2} -- visible, frame switch
@@ -78,7 +75,7 @@ function BOOT()
   }
 
   -- testmap
-  testmap='w0000,w1111,w2222,w3333,,,,,,,,,,,,x' -- state_string...
+  testmap='w0000,w1111,w2222,w3333,,,,,,,b3333,,,,,x' -- state_string...
   --testmap=false
 
   -- bgm
@@ -114,71 +111,6 @@ function TIC()
     draw_game()
   end
 
-end
-
--- build state from string, or return current state as string
-function state_string(str)
-  if str then
-    local a = split(str, ',')
-    if #a ~= gsx * gsy then
-      error('State string: invalid length.')
-    end
-    cells = {}
-    local tok = {'', 'x', 'w', 'b'}
-    for i = 1, #a do
-      local gv=i-1
-      local x=(gv%gsx)+1;
-      local y=(math.floor(gv/gsy))+1;
-      local t = string.sub(a[i], 1, 1)
-      if not tcontains(tok, t) then
-        error('State string: invalid type.')
-      end
-      -- shields
-      if t == 'w' or t == 'b' then
-        if string.len(a[i]) ~= 5 then
-          error('State string: invalid cell data (shield).')
-        end
-        local type = t == 'w' and 'wbc' or 'bacteria'
-        local shield = {0, 0, 0, 0}
-        for s = 1, 4 do
-          local v = tonumber(string.sub(a[i], s + 1, s + 1))
-          shield[s] = v
-        end
-        local cell = gen_cell(type, x, y)
-        cell.s = shield
-        table.insert(cells, cell)
-      end
-      if t == 'x' then
-        local cell = gen_cell('blocked', x, y)
-        table.insert(cells, cell)
-      end
-    end
-  else
-    local out = {}
-    for y = 1, gsy do
-      for x = 1, gsx do
-        local cell = get_cell_at(x, y)
-        if cell then
-          local v = ''
-          if cell.t == 'blocked' then
-            v = 'x'
-          elseif cell.t == 'wbc' then
-            v = 'w'
-          elseif cell.t == 'bacteria' then
-            v = 'b'
-          end
-          if cell.t == 'wbc' or cell.t == 'bacteria' then
-            v = v .. table.concat(cell.s)
-          end
-          table.insert(out, v)
-        else
-          table.insert(out, '')
-        end
-      end
-    end
-    local outstr = table.concat(out, ',')
-    return outstr
-  end
 end
 
 function draw_game()
@@ -332,59 +264,7 @@ function draw_game()
 
   -- calculate move
   if move.f>0 and not move.p then
-    -- first, process wbc movement... multiple passes...
-    local wbcs={}
-    for k,cell in pairs(cells) do
-      if cell.t=='wbc' then table.insert(wbcs,{cell,k}) end
-    end
-    local limit=0;
-    while not all_wbcs_processed(wbcs) do
-      limit=limit+1
-      if limit>20 then
-        trace('!!!WBC MOVE WHILE LOOP LIMIT BROKEN!!!')
-        break
-      end
-      for k,wbc in pairs(wbcs) do
-        local cell=wbc[1]
-        if cell.p==0 then
-          local tx,ty=get_target_loc(cell.x,cell.y)
-          local target=get_cell_at(tx,ty)
-          if not target then -- empty -- can move (wbc can only move when empty...)
-            -- move wbc
-            cell.x=tx
-            cell.y=ty
-            cell.p=1
-          else
-            if target.t~='wbc' or target.p>0 then -- if target is not wbc, or wbc is processed...
-              cell.p=2
-            end
-          end
-        end
-      end
-    end
-    -- next, process attacking...
-    for k,wbc in pairs(wbcs) do
-      local cell=wbc[1]
-      local cell_index=wbc[2]
-      if cell.p==2 then
-        local tx,ty=get_target_loc(cell.x,cell.y)
-        local target,target_index=get_cell_at(tx,ty)
-        if target then
-          -- bacteria
-          if target.t=='bacteria' then
-            process_attack(cell,cell_index,target,target_index)
-            cell.p=3
-          end
-        end
-      end
-    end
-    -- process cells to destroy
-    -- (mark them nil, then "clean" the table at the very end of TIC())
-    for k,v in pairs(move.d) do
-      cells[v]=nil
-    end
-    -- clean cells table
-    tclean(cells)
+    process_move(move.x,move.y)
     -- check win (before game over check...)
     local bacteria_cells=get_cell_count('bacteria')
     if bacteria_cells==0 then
@@ -402,6 +282,187 @@ function draw_game()
     end
     -- move processed...
     move.p=true
+  end
+end
+
+-- build state from string, or return current state as string
+function state_string(str)
+  if str then
+    local a = split(str, ',')
+    if #a ~= gsx * gsy then
+      error('State string: invalid length.')
+    end
+    cells = {}
+    local tok = {'', 'x', 'w', 'b'}
+    for i = 1, #a do
+      local gv=i-1
+      local x=(gv%gsx)+1;
+      local y=(math.floor(gv/gsy))+1;
+      local t = string.sub(a[i], 1, 1)
+      if not tcontains(tok, t) then
+        error('State string: invalid type.')
+      end
+      -- shields
+      if t == 'w' or t == 'b' then
+        if string.len(a[i]) ~= 5 then
+          error('State string: invalid cell data (shield).')
+        end
+        local type = t == 'w' and 'wbc' or 'bacteria'
+        local shield = {0, 0, 0, 0}
+        for s = 1, 4 do
+          local v = tonumber(string.sub(a[i], s + 1, s + 1))
+          shield[s] = v
+        end
+        local cell = gen_cell(type, x, y)
+        cell.s = shield
+        table.insert(cells, cell)
+      end
+      if t == 'x' then
+        local cell = gen_cell('blocked', x, y)
+        table.insert(cells, cell)
+      end
+    end
+  else
+    local out = {}
+    for y = 1, gsy do
+      for x = 1, gsx do
+        local cell = get_cell_at(x, y)
+        if cell then
+          local v = ''
+          if cell.t == 'blocked' then
+            v = 'x'
+          elseif cell.t == 'wbc' then
+            v = 'w'
+          elseif cell.t == 'bacteria' then
+            v = 'b'
+          end
+          if cell.t == 'wbc' or cell.t == 'bacteria' then
+            v = v .. table.concat(cell.s)
+          end
+          table.insert(out, v)
+        else
+          table.insert(out, '')
+        end
+      end
+    end
+    local outstr = table.concat(out, ',')
+    return outstr
+  end
+end
+
+function process_move(x, y)
+  -- set all cell.p to 0 (unprocessed)
+  for _, e in pairs(cells) do
+    e.p = 0
+  end
+
+  local function all_wbcs_move_processed()
+    local all_moved = true
+    for _, e in pairs(cells) do
+      if e.t == 'wbc' and e.p == 0 then
+        all_moved = false
+        break
+      end
+    end
+    return all_moved
+  end
+
+  local function check_row(cell)
+    local r = {}
+    if x == 0 then
+      r = {{cell.x, 1}, {cell.x, 2}, {cell.x, 3}, {cell.x, 4}}
+    end
+    if y == 0 then
+      r = {{1, cell.y}, {2, cell.y}, {3, cell.y}, {4, cell.y}}
+    end
+    local wbcs = {}
+    for i = 1, #r do
+      local c = get_cell_at(r[i][1], r[i][2])
+      if c and c.t == 'wbc' then
+        table.insert(wbcs, c)
+      end
+    end
+    if #wbcs == 4 then
+      if x < 0 or y < 0 then
+        local tmp = {wbcs[4].x, wbcs[4].y}
+        for i = #wbcs, 1, -1 do
+          wbcs[i].p = 1
+          if i == 1 then
+            wbcs[i].x = tmp[1]
+            wbcs[i].y = tmp[2]
+          else
+            wbcs[i].x = wbcs[i - 1].x
+            wbcs[i].y = wbcs[i - 1].y
+          end
+        end
+      else
+        local tmp = {wbcs[1].x, wbcs[1].y}
+        for i = 1, #wbcs do
+          wbcs[i].p = 1
+          if i == 4 then
+            wbcs[i].x = tmp[1]
+            wbcs[i].y = tmp[2]
+          else
+            wbcs[i].x = wbcs[i + 1].x
+            wbcs[i].y = wbcs[i + 1].y
+          end
+        end
+      end
+    end
+  end
+
+  local limiter = 0
+  while not all_wbcs_move_processed() do
+    limiter = limiter + 1
+    if limiter > 100 then
+      error('move limiter')
+      for _, e in pairs(cells) do
+        e.p = 4
+      end
+    end
+    for _, e in pairs(cells) do
+      if e.t == 'wbc' and e.p == 0 then
+        local tx, ty = gridloc(e.x + x, e.y + y)
+        local target = get_cell_at(tx, ty)
+        if not target then
+          e.p = 1
+          e.x = tx
+          e.y = ty
+        else
+          if target.t == 'blocked' then
+            e.p = 2
+          end
+          if target.t == 'wbc' then
+            if target.p > 0 then
+              e.p = 2
+            else
+              check_row(e)
+            end
+          end
+          if target.t == 'bacteria' then
+            e.p = 3
+            local attack_shield = 1
+            local defend_shield = 2
+            if y == 1 then attack_shield = 2; defend_shield = 1 end
+            if x == -1 then attack_shield = 3; defend_shield = 4 end
+            if x == 1  then attack_shield = 4; defend_shield = 3 end
+            e.s[attack_shield] = e.s[attack_shield] - 1
+            if e.s[attack_shield] < 0 then e.d = true end
+            target.s[defend_shield] = target.s[defend_shield] - 1
+            if target.s[defend_shield] < 0 then target.d = true end
+          end
+        end
+      end
+    end
+  end
+
+  -- Remove dead cells
+  local i = #cells
+  while i > 0 do
+    if cells[i].d then
+      table.remove(cells, i)
+    end
+    i = i - 1
   end
 end
 
@@ -587,7 +648,8 @@ function gen_cell(t,x,y)
     f=rint(0,3),
     a=1, -- anim, all use 6 frames (same anims...)
     p=0, -- (move) processed id (0=not processed,1=moved,2=cannot move,3=attacked)
-    s={0,0,0,0} -- shield (up down left right) -> (wbc and bacteria)
+    s={0,0,0,0}, -- shield (up down left right) -> (wbc and bacteria)
+    d=false -- destroy
   }
   return e
 end
