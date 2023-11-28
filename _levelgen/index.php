@@ -42,8 +42,18 @@ if(isset($_GET['tools'])){
   $out='';
   header('content-type:text/plain');
 
-  // Get all levels in order...
+  // Get unrated JSON
   if(true){
+    $q='select * from levels where rating is null';
+    $s=$pdo->prepare($q);
+    $s->execute();
+    $r=$s->fetchAll();
+    $out=json_encode($r,JSON_PRETTY_PRINT);
+    echo $out;
+  }
+
+  // Get all levels in order...
+  if(false){
     $q='select * from levels where rating>0 order by rating asc, rowid asc';
     $s=$pdo->prepare($q);
     $s->execute();
