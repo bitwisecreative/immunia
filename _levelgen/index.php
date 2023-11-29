@@ -27,10 +27,10 @@ if(isset($_GET['rate'])){
   exit;
 }
 
-// Get number of rated levels
-if(isset($_GET['num_rated'])){
+// Get number of playable levels
+if(isset($_GET['num_playable'])){
   $pdo=getDb();
-  $q='select count(*) as num_rated from levels where rating>0';
+  $q='select count(*) as num_playable from levels where rating>0';
   $s=$pdo->prepare($q);
   $s->execute();
   $r=$s->fetch();

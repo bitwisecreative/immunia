@@ -53,6 +53,12 @@ $(function(){
         }
         console.log(d);
         $('#rate-rowid').text('Rating ROWID: '+d.rowid);
+        $.get('./?num_playable=1').done(function(dd){
+          if(typeof dd=='string'){
+            dd=JSON.parse(dd);
+          }
+          $('#rate-rowid').text($('#rate-rowid').text()+` (${dd['num_playable']} playable levels)`);
+        });
         $('#statestring').val(d.state);
         let options='<option disabled selected></option>';
         for(let i=0;i<11;i++){
