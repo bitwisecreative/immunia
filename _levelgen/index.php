@@ -54,7 +54,7 @@ if(isset($_GET['tools'])){
   header('content-type:text/plain');
 
   // Import
-  if(true){
+  if(false){
     $json=json_decode(file_get_contents('./add_unrated.json'),true);
     foreach($json as $d){
       $q='select * from levels where state=?';
@@ -85,7 +85,7 @@ if(isset($_GET['tools'])){
   }
 
   // Get all levels in order...
-  if(false){
+  if(true){
     $q='select * from levels where rating>0 order by rating asc, rowid asc';
     $s=$pdo->prepare($q);
     $s->execute();
@@ -290,6 +290,13 @@ select#rate-send {
     font-size: 20px;
     padding: 4px;
 }
+div#rate-send {
+    display: inline;
+}
+span.tiny-note {
+    font-size: smaller;
+    color: #e4beef;
+}
 </style>
 </head>
 <body>
@@ -333,7 +340,7 @@ select#rate-send {
   <p>
     <a href="#play_and_rate">Play and Rate</a><br />
     <div id="rate-rowid"></div>
-    <div id="rate-send"></div>
+    <div id="rate-send"></div> <span class="tiny-note">You can also rate with 0-9 keys...</span>
   </p>
 
   <p>

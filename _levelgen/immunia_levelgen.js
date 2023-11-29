@@ -81,6 +81,13 @@ $(function(){
         });
         state_string($('#statestring').val());
         draw_board();
+        // rate with 0-9 keys :P
+        $(document).on('keyup',function(e){
+          let keynum=+e.key;
+          if(!isNaN(keynum)){
+            $('#rate-send select').val(keynum).trigger('change');
+          }
+        });
       });
     }
   
