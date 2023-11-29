@@ -17,7 +17,7 @@
   -- I found nada... Best bet is to create a custom menu that can be accessed by ` key or clicking menu button or a custom menu item in TIC-80 menu.
   -- TIC-80 mobile web implementation could use some improvements...
 function opengamemenu()
-  trace("Open Game Menu")
+  screen='menu'
 end
 GameMenu={opengamemenu}
 function MENU(i)
@@ -41,6 +41,7 @@ function BOOT()
 
   -- current screen
   screen='game'
+  screen='title'
 
   -- screen size
   sw=240
@@ -107,10 +108,34 @@ function TIC()
   f=f+1
   cls(0)
 
+  if screen=='title' then
+    draw_title()
+  end
+
+  if screen=='help' then
+    draw_help()
+  end
+
+  if screen=='menu' then
+    draw_menu()
+  end
+
   if screen=='game' then
     draw_game()
   end
 
+end
+
+function draw_title()
+  print("Title",3,5,2,false,2)
+end
+
+function draw_help()
+  print("Help",3,5,2,false,2)
+end
+
+function draw_menu()
+  print("Menu",3,5,2,false,2)
 end
 
 function draw_game()
