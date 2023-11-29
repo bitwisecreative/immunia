@@ -27,6 +27,17 @@ if(isset($_GET['rate'])){
   exit;
 }
 
+// Get number of rated levels
+if(isset($_GET['num_rated'])){
+  $pdo=getDb();
+  $q='select count(*) as num_rated from levels where rating>0';
+  $s=$pdo->prepare($q);
+  $s->execute();
+  $r=$s->fetch();
+  echo json_encode($r);
+  exit;
+}
+
 // Write rating
 if(isset($_POST['rowid'])&&isset($_POST['rating'])){
   $pdo=getDb();
@@ -42,8 +53,29 @@ if(isset($_GET['tools'])){
   $out='';
   header('content-type:text/plain');
 
-  // Get unrated JSON
+  // Import
   if(true){
+    $json=json_decode(file_get_contents('./add_unrated.json'),true);
+    foreach($json as $d){
+      $q='select * from levels where state=?';
+      $s=$pdo->prepare($q);
+      $s->execute([$d['state']]);
+      $r=$s->fetch();
+      if($r){
+        echo 'state already exists: '.$d['state'].' ...skipping!'.PHP_EOL;
+      }else{
+        $q='insert into levels(state,win_moves) values(?,?)';
+        $s=$pdo->prepare($q);
+        $s->execute([$d['state'],$d['win_moves']]);
+        echo 'state inserted: '.$d['state'].' '.PHP_EOL;
+      }
+      echo PHP_EOL.PHP_EOL;
+    }
+    exit;
+  }
+
+  // Get unrated JSON
+  if(false){
     $q='select * from levels where rating is null';
     $s=$pdo->prepare($q);
     $s->execute();
