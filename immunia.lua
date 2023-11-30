@@ -6,9 +6,11 @@
 -- version: 0.1
 -- script:  lua
 
--- TODO: title screen
 -- TODO: win/lose
--- TODO: move anims and such
+-- TODO: menu
+-- TODO: move anims
+-- TODO: particle effects
+-- TODO: sfx
 
 -- menu: OPEN
 -- requires "menu:" meta tag above...
@@ -26,7 +28,7 @@ end
 -- INIT
 function BOOT()
 
-  --pmem(0,0)
+  --pmem(0,17)
   trace('-- BOOT --')
 
   -- pmem map
@@ -643,7 +645,7 @@ function get_empty_cross_neighbors(x,y)
     -- looping grid...
     local gx,gy=gridloc(v[1],v[2])
     local cell=get_cell_at(gx,gy)
-    if not cell then table.insert(n,{v[1],v[2]}) end
+    if not cell then table.insert(n,{gx,gy}) end
   end
   --
   return n
