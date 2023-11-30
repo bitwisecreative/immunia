@@ -6,10 +6,10 @@
 -- version: 0.1
 -- script:  lua
 
--- TODO: win/lose
 -- TODO: move anims
 -- TODO: particle effects
 -- TODO: sfx
+-- TODO: lengthen bgm
 
 -- menu: OPEN
 -- requires "menu:" meta tag above...
@@ -92,6 +92,15 @@ function BOOT()
 
   -- tiny font
   tf=tfont:new()
+
+  -- win/lose management/message
+  win_lose={
+    active=false,
+    is_win=false,
+    message='',
+    f=0,
+    duration=60
+  }
 
   -- set global levels var
   set_levels()
@@ -289,97 +298,99 @@ function draw_game()
   end
 
   -- controls
-  local mx,my,mb=mouse()
-  if move.f==0 then
-    -- Controller/Arrows, WASD
-    if btnp(0) or keyp(23) then
-      move.x=0
-      move.y=-1
-      move.f=f
-      move.n=move.n-1
-    end
-    if btnp(1) or keyp(19) then
-      move.x=0
-      move.y=1
-      move.f=f
-      move.n=move.n-1
-    end
-    if btnp(2) or keyp(1) then
-      move.x=-1
-      move.y=0
-      move.f=f
-      move.n=move.n-1
-    end
-    if btnp(3) or keyp(4) then
-      move.x=1
-      move.y=0
-      move.f=f
-      move.n=move.n-1
-    end
-    -- Swipe
-    local mdir={
-      x=0,
-      y=0
-    }
-    local movedx=swipe.x-mx
-    local movedy=swipe.y-my
-    local absmovedx=math.abs(movedx)
-    local absmovedy=math.abs(movedy)
-    if absmovedx>=swipeminmove or absmovedy>=swipeminmove then
-      if absmovedx>=absmovedy then
-        -- x
-        if movedx<0 then
-          mdir.x=1
-          mdir.y=0
+  if not win_lose.active then
+    local mx,my,mb=mouse()
+    if move.f==0 then
+      -- Controller/Arrows, WASD
+      if btnp(0) or keyp(23) then
+        move.x=0
+        move.y=-1
+        move.f=f
+        move.n=move.n-1
+      end
+      if btnp(1) or keyp(19) then
+        move.x=0
+        move.y=1
+        move.f=f
+        move.n=move.n-1
+      end
+      if btnp(2) or keyp(1) then
+        move.x=-1
+        move.y=0
+        move.f=f
+        move.n=move.n-1
+      end
+      if btnp(3) or keyp(4) then
+        move.x=1
+        move.y=0
+        move.f=f
+        move.n=move.n-1
+      end
+      -- Swipe
+      local mdir={
+        x=0,
+        y=0
+      }
+      local movedx=swipe.x-mx
+      local movedy=swipe.y-my
+      local absmovedx=math.abs(movedx)
+      local absmovedy=math.abs(movedy)
+      if absmovedx>=swipeminmove or absmovedy>=swipeminmove then
+        if absmovedx>=absmovedy then
+          -- x
+          if movedx<0 then
+            mdir.x=1
+            mdir.y=0
+          else
+            mdir.x=-1
+            mdir.y=0
+          end
         else
-          mdir.x=-1
-          mdir.y=0
-        end
-      else
-        -- y
-        if movedy<0 then
-          mdir.x=0
-          mdir.y=1
-        else
-          mdir.x=0
-          mdir.y=-1
+          -- y
+          if movedy<0 then
+            mdir.x=0
+            mdir.y=1
+          else
+            mdir.x=0
+            mdir.y=-1
+          end
         end
       end
-    end
-    if mb~=swipe.b then
-      if mb then
-        swipe.x=mx
-        swipe.y=my
+      if mb~=swipe.b then
+        if mb then
+          swipe.x=mx
+          swipe.y=my
+        else
+          if absmovedx>=swipeminmove or absmovedy>=swipeminmove then
+            move.x=mdir.x
+            move.y=mdir.y
+            move.f=f
+            move.n=move.n-1
+          end
+        end
+        swipe.b=mb
       else
-        if absmovedx>=swipeminmove or absmovedy>=swipeminmove then
-          move.x=mdir.x
-          move.y=mdir.y
-          move.f=f
-          move.n=move.n-1
+        if mb then
+          --line(swipe.x,swipe.y,mx,my,1)
+          if mdir.y==-1 then
+            draw_arrow('up')
+          end
+          if mdir.y==1 then
+            draw_arrow('down')
+          end
+          if mdir.x==-1 then
+            draw_arrow('left')
+          end
+          if mdir.x==1 then
+            draw_arrow('right')
+          end
         end
       end
-      swipe.b=mb
     else
-      if mb then
-        --line(swipe.x,swipe.y,mx,my,1)
-        if mdir.y==-1 then
-          draw_arrow('up')
-        end
-        if mdir.y==1 then
-          draw_arrow('down')
-        end
-        if mdir.x==-1 then
-          draw_arrow('left')
-        end
-        if mdir.x==1 then
-          draw_arrow('right')
-        end
+      if f-move.f>=movespeed then
+        reset_move()
+        reset_cell_processed()
       end
-    end
-  else
-    if f-move.f>=movespeed then
-      reset_move()
-      reset_cell_processed()
     end
   end
 
@@ -431,7 +442,7 @@ function draw_game()
   -- move arrows
   -- arrows
   if f%arrowblink[2]==0 then arrowblink[1]= not arrowblink[1] end
-  if arrowblink[1] then
+  if arrowblink[1] and not win_lose.active then
     if move.y==-1 then
       draw_arrow('up')
     end
@@ -457,15 +468,49 @@ function draw_game()
   -- check win/lose
   local bacteria_cells=get_cell_count('bacteria')
   if bacteria_cells==0 then
-    level=level+1
-    if level>pmem(0) then pmem(0,level) end
-    load_level()
-    -- todo win screen
+    if not win_lose.active then
+      win_lose.active=true
+      win_lose.f=f
+      win_lose.is_win=true
+      win_lose.message=get_win_lose_message(true)
+    end
   else
     -- check game over
     local wbc_cells=get_cell_count('wbc')
     if wbc_cells==0 then
-      -- todo lose screen
+      if not win_lose.active then
+        win_lose.active=true
+        win_lose.f=f
+        win_lose.is_win=false
+        win_lose.message=get_win_lose_message(false)
+      end
+    end
+  end
+
+  -- win/lose
+  if win_lose.active then
+    local oc=5
+    local fc=6
+    if not win_lose.is_win then
+      oc=2
+      fc=4
+    end
+    local pwidth=print(win_lose.message,-1000,-1000,0,false,2)
+    local px=math.floor((sw-pwidth)/2)
+    local ow=4
+    local py=(sh/2)-10
+    for y=-ow,ow do
+      for x=-ow,ow do
+        print(win_lose.message,px+x,py+y,oc,false,2)
+      end
+    end
+    print(win_lose.message,px,py,fc,false,2)
+    if f-win_lose.f>win_lose.duration then
+      win_lose.active=false
+      if win_lose.is_win then
+        level=level+1
+        if level>pmem(0) then pmem(0,level) end
+      end
       load_level()
     end
   end
@@ -1118,6 +1163,43 @@ function bgm_toggle()
     music(0)
   end
   pmem(1,bgm_off)
+end
+
+function get_win_lose_message(is_win)
+  local win={
+    "You win!",
+    "Great job!",
+    "Bacteria KILLED!",
+    "Success!",
+    "n00bs pwnd",
+    "Nice work!",
+    "Too easy! (Was it?)",
+    "Too easy!",
+    "Rad!",
+    "Awesome to the max!",
+    "Sick! Err...",
+    "level=level+1",
+    ":D",
+    "^_^",
+  }
+  local lose={
+    "You lose!",
+    "FAIL!",
+    "You got pwnd",
+    "Try again!",
+    "Haha",
+    "lol",
+    "Sorry!",
+    ":|",
+    ":O",
+    "X_________X",
+    "OH EWL NO!",
+    "Bacteria WINS!",
+    "Dang...",
+    "Try MOAR!",
+  }
+  if is_win then return win[rint(1,#win)] end
+  return lose[rint(1,#lose)]
 end
 
 function update_level_select(place,dir)
