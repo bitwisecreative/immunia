@@ -7,7 +7,6 @@
 -- script:  lua
 
 -- TODO: win/lose
--- TODO: menu
 -- TODO: move anims
 -- TODO: particle effects
 -- TODO: sfx
@@ -18,6 +17,7 @@
   -- I found nada... Best bet is to create a custom menu that can be accessed by ` key or clicking menu button or a custom menu item in TIC-80 menu.
   -- TIC-80 mobile web implementation could use some improvements...
 function opengamemenu()
+  buttons={}
   screen='menu'
 end
 GameMenu={opengamemenu}
@@ -34,6 +34,7 @@ function BOOT()
   -- pmem map
   -- 0 = current level
   -- 1 = bgm
+  -- 2 = load_level_select
 
   -- seed rng
   math.randomseed(tstamp())
@@ -43,7 +44,6 @@ function BOOT()
 
   -- current screen
   screen='game'
-  --screen='title'
 
   -- screen size
   sw=240
@@ -82,7 +82,13 @@ function BOOT()
   testmap=false
 
   -- bgm
-  -- music(0)
+  bgm_off=pmem(1)
+  if bgm_off==0 then
+    music(0)
+  end
+
+  -- level select
+  level_select={0,0,1}
 
   -- tiny font
   tf=tfont:new()
@@ -94,6 +100,12 @@ function BOOT()
   if level<1 then level=1 end
   -- random level if maxed
   if level>#levels then level=rint(1,#levels) end
+  -- load level select
+  if pmem(2)>0 then
+    level=pmem(2)
+    pmem(2,0)
+  end
+  --
   level_string=levels[level]
   -- testmap?
   if testmap then level_string=testmap end
@@ -101,6 +113,9 @@ function BOOT()
   -- generate cells
   state_string(level_string)
   --trace(state_string())
+
+  -- buttons
+  buttons={}
 
 end
 
@@ -110,14 +125,6 @@ function TIC()
   f=f+1
   cls(0)
 
-  if screen=='title' then
-    draw_title()
-  end
-
-  if screen=='help' then
-    draw_help()
-  end
-
   if screen=='menu' then
     draw_menu()
   end
@@ -126,18 +133,98 @@ function TIC()
     draw_game()
   end
 
-end
-
-function draw_title()
-  print("Title",3,5,2,false,2)
-end
-
-function draw_help()
-  print("Help",3,5,2,false,2)
+  -- buttons
+  for _,b in pairs(buttons) do
+    b:draw()
+  end
 end
 
 function draw_menu()
-  print("Menu",3,5,2,false,2)
+  -- bg
+  rect(0,0,sw,sh,1)
+
+  -- title
+  -- print(text x=0 y=0 color=15 fixed=false scale=1 smallfont=false) -> width`
+  print("Immunia",3,5,2,false,2)
+  print("Immunia",3,3,10,false,2)
+  print("Immunia",3,4,0,false,2)
+  line(3,18,76,18,0)
+
+  -- sub
+  print("Game Menu",100,5,0,false,2)
+
+  -- level select
+  print("Level Select:",110,30,10,false,1)
+  local lc=2
+  if level_select_ok() then lc=6 end
+  print(level_select[1]..level_select[2]..level_select[3],110,60,lc,true,2)
+
+  -- vsep line
+  line(90,40,90,100,0)
+
+  -- settings buttons
+  if #buttons==0 then
+    local back_button=button:new('Go Back',3,30,function()
+      buttons={}
+      screen='game'
+    end)
+    table.insert(buttons,back_button)
+
+    local bgm_button=button:new('BGM On/Off',3,60,function()
+      bgm_toggle()
+    end)
+    table.insert(buttons,bgm_button)
+
+    local reset_button=button:new('Reset',3,90,function()
+      reset()
+    end)
+    table.insert(buttons,reset_button)
+
+    -- this kindof sucks but oh well...
+    local lsup1_button=button:new('+',110,40,function()
+      update_level_select(1,1)
+    end)
+    table.insert(buttons,lsup1_button)
+
+    local lsup2_button=button:new('+',122,40,function()
+      update_level_select(2,1)
+    end)
+    table.insert(buttons,lsup2_button)
+
+    local lsup3_button=button:new('+',134,40,function()
+      update_level_select(3,1)
+    end)
+    table.insert(buttons,lsup3_button)
+
+    local lsdown1_button=button:new('-',110,75,function()
+      update_level_select(1,-1)
+    end)
+    table.insert(buttons,lsdown1_button)
+
+    local lsdown2_button=button:new('-',122,75,function()
+      update_level_select(2,-1)
+    end)
+    table.insert(buttons,lsdown2_button)
+
+    local lsdown3_button=button:new('-',134,75,function()
+      update_level_select(3,-1)
+    end)
+    table.insert(buttons,lsdown3_button)
+
+    local lsgo_button=button:new('Go!',155,57,function()
+      if level_select_ok() then
+        pmem(2,level_select_value())
+        reset()
+      end
+    end)
+    table.insert(buttons,lsgo_button)
+
+  end
+
+  -- ;)
+  bxoffset=1
+  spr(240,0+bxoffset,127)
+  print("itwisecreative.com",9+bxoffset,129,0)
 end
 
 function draw_game()
@@ -154,17 +241,26 @@ function draw_game()
 
   -- level
   print("Level: ",3,30,0,false,1)
-  print(numpad(level,3),38,30,10,false,1)
+  print(numpad(level,3),38,30,10,true,1)
 
   -- division
   print("Bacteria",3,46,0,false,1)
   print("Division:",3,54,0,false,1)
   for ty=-1,1 do
     for tx=-1,1 do
-      print(numpad(move.n,2),55+tx,48+ty,0,false,2)
+      print(numpad(move.n,2),55+tx,48+ty,0,true,2)
     end
   end
-  print(numpad(move.n,2),55,48,2,false,2)
+  print(numpad(move.n,2),55,48,2,true,2)
+  line(3,74,76,74,0)
+
+  -- menu button
+  if #buttons==0 then
+    local menu_button=button:new('Open Menu',3,94,function()
+      opengamemenu()
+    end)
+    table.insert(buttons,menu_button)
+  end
 
   -- ;)
   bxoffset=1
@@ -362,14 +458,16 @@ function draw_game()
     move.p=true
   end
 
-  -- debug
-  local debugx=2
-  local debugy=100
-  local debugc=5
-  tf:print('level: '..level,debugx,debugy,debugc)
-  tf:print('move: '..move.x..','..move.y..','..move.n,debugx,debugy+4,debugc)
-  tf:print('mouse: '..mx..','..my..','..bint(mb),debugx,debugy+8,debugc)
-  tf:print('swipe: '..swipe.x..','..swipe.y..','..bint(swipe.b),debugx,debugy+12,debugc)
+  -- debug output
+  if false then
+    local debugx=2
+    local debugy=100
+    local debugc=5
+    tf:print('level: '..level,debugx,debugy,debugc)
+    tf:print('move: '..move.x..','..move.y..','..move.n,debugx,debugy+4,debugc)
+    tf:print('mouse: '..mx..','..my..','..bint(mb),debugx,debugy+8,debugc)
+    tf:print('swipe: '..swipe.x..','..swipe.y..','..bint(swipe.b),debugx,debugy+12,debugc)
+  end
 
 end
 
@@ -963,6 +1061,76 @@ function tfont:print(s,x,y,c,o)
       end
     end
   end
+end
+
+button={}
+button.__index=button
+function button:new(text,x,y,callback)
+  local this={
+    text=text,
+    x=x,
+    y=y,
+    md=false, -- mouse is down on button
+    callback=callback
+  }
+  setmetatable(this,button)
+  return this
+end
+function button:draw()
+  -- special padding for + - buttons...
+  local xpad=0
+  if #self.text==1 then xpad=2 end
+  --
+  rectb(self.x+1,self.y+1,#self.text*7+xpad,16,15)
+  rect(self.x,self.y,#self.text*7+xpad,16,1)
+  rectb(self.x,self.y,#self.text*7+xpad,16,0)
+  print(self.text,self.x+3,self.y+6,0)
+  local mx,my,mb=mouse()
+  if mb then
+    if mx>=self.x and mx<=self.x+#self.text*7 and my>=self.y and my<=self.y+16 then
+      self.md=true
+    else
+      self.md=false
+    end
+  elseif self.md then
+    self.md=false
+    self.callback()
+  end
+end
+
+function bgm_toggle()
+  if bgm_off==1 then bgm_off=0 else bgm_off=1 end
+  if bgm_off==1 then
+    music()
+  else
+    music(0)
+  end
+  pmem(1,bgm_off)
+end
+
+function update_level_select(place,dir)
+  if dir==1 then
+    level_select[place]=level_select[place]+1
+    if level_select[place]>9 then level_select[place]=0 end
+  end
+  if dir==-1 then
+    level_select[place]=level_select[place]-1
+    if level_select[place]<0 then level_select[place]=9 end
+  end
+end
+
+function level_select_value()
+  local lv=0
+  lv=lv+level_select[3]
+  lv=lv+(level_select[2]*10)
+  lv=lv+(level_select[1]*100)
+  return lv
+end
+
+function level_select_ok()
+  local lv=level_select_value()
+  if lv==0 or lv>pmem(0) then return false end
+  return true
 end
 
 function set_levels()
@@ -2283,6 +2451,6 @@ end
 -- </SCREEN>
 
 -- <PALETTE>
--- 000:aeaeae555555b13e53ef7d57ffcd75a7f07038b76425717929366f3b5dc941a6f673eff7f4f4f494b0c2566c86333c57
+-- 000:aeaeae555555b13e53ef7d57ffcd75a7f07038b76425717929366f3b5dc941a6f673eff7f4f4f494b0c2566c86353535
 -- </PALETTE>
 
