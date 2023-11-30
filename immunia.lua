@@ -99,7 +99,7 @@ function BOOT()
     is_win=false,
     message='',
     f=0,
-    duration=60
+    duration=90
   }
 
   -- set global levels var
@@ -489,11 +489,11 @@ function draw_game()
 
   -- win/lose
   if win_lose.active then
-    local oc=5
-    local fc=6
+    local oc=6
+    local fc=5
     if not win_lose.is_win then
-      oc=2
-      fc=4
+      oc=4
+      fc=2
     end
     local pwidth=print(win_lose.message,-1000,-1000,0,false,2)
     local px=math.floor((sw-pwidth)/2)
@@ -881,6 +881,15 @@ end
 function draw_cell(c)
   local sx=(c.x-1)*32+112
   local sy=(c.y-1)*32
+  -- todo move anim wip
+  if move.f>0 and f-move.f<movespeed then
+    local mframe=f-move.f
+    if c.p==1 then
+      sx=sx-(32*move.x)+(move.x*mframe)*3
+      sy=sy-(32*move.y)+(move.y*mframe)*3
+    end
+  end
+  --
   local sprnum=0 -- wbc
   local drawshield=false
   local shieldcolor=1
@@ -1184,19 +1193,19 @@ function get_win_lose_message(is_win)
   }
   local lose={
     "You lose!",
+    "Oh no!",
     "FAIL!",
-    "You got pwnd",
+    "pwnd",
     "Try again!",
-    "Haha",
+    "Yikes!",
     "lol",
     "Sorry!",
-    ":|",
-    ":O",
+    ":(",
     "X_________X",
     "OH EWL NO!",
     "Bacteria WINS!",
     "Dang...",
-    "Try MOAR!",
+    "Try again",
   }
   if is_win then return win[rint(1,#win)] end
   return lose[rint(1,#lose)]
