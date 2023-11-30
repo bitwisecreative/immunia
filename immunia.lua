@@ -7,7 +7,6 @@
 -- script:  lua
 
 -- TODO: title screen
--- TODO: tutorial
 -- TODO: win/lose
 -- TODO: move anims and such
 
@@ -27,11 +26,12 @@ end
 -- INIT
 function BOOT()
 
+  --pmem(0,0)
   trace('-- BOOT --')
 
   -- pmem map
-  -- 0 = bgm
-  -- 1 = current level
+  -- 0 = current level
+  -- 1 = bgm
 
   -- seed rng
   math.randomseed(tstamp())
@@ -41,7 +41,7 @@ function BOOT()
 
   -- current screen
   screen='game'
-  screen='title'
+  --screen='title'
 
   -- screen size
   sw=240
@@ -77,7 +77,7 @@ function BOOT()
 
   -- testmap
   testmap='w0000,w1111,w2222,w3333,,,,,,,b3333,,,,,x' -- state_string...
-  --testmap=false
+  testmap=false
 
   -- bgm
   -- music(0)
@@ -91,7 +91,7 @@ function BOOT()
   level=pmem(0)
   if level<1 then level=1 end
   -- random level if maxed
-  if level>=#levels then level=rint(1,#levels) end
+  if level>#levels then level=rint(1,#levels) end
   level_string=levels[level]
   -- testmap?
   if testmap then level_string=testmap end
@@ -248,7 +248,7 @@ function draw_game()
           move.x=mdir.x
           move.y=mdir.y
           move.f=f
-          move.n=move.n+1
+          move.n=move.n-1
         end
       end
       swipe.b=mb
@@ -275,14 +275,51 @@ function draw_game()
       reset_cell_processed()
     end
   end
-  -- debug
-  local debugx=2
-  local debugy=200
-  local debugc=5
-  tf:print('level: '..level,debugx,debugy,debugc)
-  tf:print('move: '..move.x..','..move.y..','..move.n,debugx,debugy+4,debugc)
-  tf:print('mouse: '..mx..','..my..','..bint(mb),debugx,debugy+8,debugc)
-  tf:print('swipe: '..swipe.x..','..swipe.y..','..bint(swipe.b),debugx,debugy+12,debugc)
+
+  -- inline tutorial
+  local tut={}
+  table.insert(tut,{
+    'Welcome to Immunia!',
+    'A simple puzzle game about',
+    'white blood cells trying to',
+    'kill all the bacteria. Move',
+    'the cells with up, down, left,',
+    'and right (swiping supported)',
+    'to attack the bacteria.',
+  })
+  table.insert(tut,{
+    'Good! Pretty simple, right?',
+    'The lines inside the cells',
+    'protect the nucleus. Attack',
+    'the exposed nucleus to kill',
+    'the cell. If all your cells',
+    'die, but still killed all the',
+    'bacteria, that\'s a win!',
+  })
+  table.insert(tut,{
+    'Great! Just a couple more',
+    'things... Spaces can be',
+    'blocked. But, the map has',
+    'wrap-around movement. Move',
+    'right on this map until you',
+    'clear it to see for yourself.',
+  })
+  table.insert(tut,{
+    'Wonderful! One last thing...',
+    'Bacteria will divide every 13',
+    'moves. Be sure to kill them',
+    'quickly! Enjoy the game!'
+  })
+  if tut[level]~=nil then
+    rectb(80,0,200,#tut[level]*9+1,0)
+    rect(81,0,200,#tut[level]*9,15)
+    local tuty=2
+    local tutc=11
+    for _,line in pairs(tut[level]) do
+      print(line,83,tuty,tutc)
+      tuty=tuty+9
+    end
+  end
 
   -- move arrows
   -- arrows
@@ -308,7 +345,7 @@ function draw_game()
     -- check win (before game over check...)
     local bacteria_cells=get_cell_count('bacteria')
     if bacteria_cells==0 then
-      trace('win')
+      pmem(0,level+1)
       reset()
     else
       -- check game over
@@ -322,6 +359,16 @@ function draw_game()
     -- move processed...
     move.p=true
   end
+
+  -- debug
+  local debugx=2
+  local debugy=100
+  local debugc=5
+  tf:print('level: '..level,debugx,debugy,debugc)
+  tf:print('move: '..move.x..','..move.y..','..move.n,debugx,debugy+4,debugc)
+  tf:print('mouse: '..mx..','..my..','..bint(mb),debugx,debugy+8,debugc)
+  tf:print('swipe: '..swipe.x..','..swipe.y..','..bint(swipe.b),debugx,debugy+12,debugc)
+
 end
 
 -- build state from string, or return current state as string
@@ -906,18 +953,23 @@ function tfont:print(s,x,y,c,o)
     local xs=id*3-2
     for cy=1,3 do
       for cx=1,3 do
-        if self.font[cy][cx-1+xs]==1 then pix(x+((i-1)*4)+cx-1,y+cy-1,c) end
+        if self.font[cy][cx-1+xs]==1 then
+          local px=x+((i-1)*4)+cx-1
+          local py=y+cy-1
+          pix(px,py,c)
+        end
       end
     end
   end
 end
 
 function set_levels()
+  -- first 4 levels are tutorial
   levels={
-    'x,x,b2033,w0000,w0220,,w0100,,b0222,b3332,,w0100,,w0003,,',
-    ',,w1003,,w0130,b3302,,b3132,,,w3000,,,b1333,,x',
-    'x,,,,,,,,,x,,,b3330,,,w0000',
-    ',x,w1300,b3333,w0200,,w2020,b1330,,,w2001,w0020,w0022,,b3330,',
+    ',,,,,,w1111,,,,,,b0000,,w1111,',
+    ',,,,,,w3333,,,,,,b3333,,w3333,',
+    ',,,,,,x,,b3313,b3313,x,w0003,b3313,b3313,x,w0003',
+    ',,,,,,,w0330,b1331,b1331,b1331,w0330,b1331,b1331,b1331,w0330',
     ',,w0020,w1013,,b3123,w0200,,,x,w0020,w0130,w1200,b3033,,',
     'w1000,w2010,w0011,w2030,,,b3032,,,,b3333,w0022,,,,',
     ',,,,,,,x,,w1100,,b1333,w1230,,,',
