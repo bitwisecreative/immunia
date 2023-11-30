@@ -27,14 +27,11 @@ end
 
 -- INIT
 function BOOT()
-
-  --pmem(0,17)
   trace('-- BOOT --')
 
   -- pmem map
   -- 0 = current level
   -- 1 = bgm
-  -- 2 = load_level_select
 
   -- seed rng
   math.randomseed(tstamp())
@@ -55,6 +52,9 @@ function BOOT()
 
   -- cells
   cells={}
+
+  -- buttons
+  buttons={}
 
   -- move
   movespeed=9
@@ -100,23 +100,8 @@ function BOOT()
   if level<1 then level=1 end
   -- random level if maxed
   if level>#levels then level=rint(1,#levels) end
-  -- load level select
-  if pmem(2)>0 then
-    level=pmem(2)
-    pmem(2,0)
-  end
-  --
-  level_string=levels[level]
-  -- testmap?
-  if testmap then level_string=testmap end
 
-  -- generate cells
-  state_string(level_string)
-  --trace(state_string())
-
-  -- buttons
-  buttons={}
-
+  load_level()
 end
 
 -- WHAMMY!
@@ -137,6 +122,30 @@ function TIC()
   for _,b in pairs(buttons) do
     b:draw()
   end
+end
+
+function load_level(l)
+  -- reset runtimes
+  -- cells
+  cells={}
+  -- buttons
+  buttons={}
+  -- move
+  reset_move()
+  move.n=movesperlevel
+  -- level
+  if l then
+    level=l
+  end
+  -- get level data
+  level_string=levels[level]
+  -- testmap?
+  if testmap then level_string=testmap end
+
+  -- generate cells
+  state_string(level_string)
+  --trace(state_string())
+
 end
 
 function draw_menu()
@@ -213,8 +222,8 @@ function draw_menu()
 
     local lsgo_button=button:new('Go!',155,57,function()
       if level_select_ok() then
-        pmem(2,level_select_value())
-        reset()
+        load_level(level_select_value())
+        screen='game'
       end
     end)
     table.insert(buttons,lsgo_button)
@@ -440,22 +449,25 @@ function draw_game()
   -- calculate move
   if move.f>0 and not move.p then
     process_move(move.x,move.y)
-    -- check win (before game over check...)
-    local bacteria_cells=get_cell_count('bacteria')
-    if bacteria_cells==0 then
-      pmem(0,level+1)
-      reset()
-    else
-      -- check game over
-      local wbc_cells=get_cell_count('wbc')
-      if wbc_cells==0 then
-        reset()
-        trace('lose')
-      end
-    end
     process_division()
     -- move processed...
     move.p=true
+  end
+
+  -- check win/lose
+  local bacteria_cells=get_cell_count('bacteria')
+  if bacteria_cells==0 then
+    level=level+1
+    if level>pmem(0) then pmem(0,level) end
+    load_level()
+    -- todo win screen
+  else
+    -- check game over
+    local wbc_cells=get_cell_count('wbc')
+    if wbc_cells==0 then
+      -- todo lose screen
+      load_level()
+    end
   end
 
   -- debug output
