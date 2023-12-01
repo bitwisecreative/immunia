@@ -6,8 +6,6 @@
 -- version: 0.1
 -- script:  lua
 
--- TODO: move anims
--- TODO: particle effects
 -- TODO: sfx
 -- TODO: lengthen bgm
 
@@ -521,14 +519,15 @@ function draw_game()
   -- particles
   for _,pp in pairs(particles) do
     pp.f=pp.f+1
-    local show=true;
-    if pp.f>20 then show=f%2==1 end
+    local big=true;
+    if pp.f>20 then big=false end
     for _,p in pairs(pp.particles) do
       p.x=p.x+p.vx
       p.y=p.y+p.vy
-      if show then
-        --pix(p.x,p.y,p.color)
+      if big then
         rect(p.x-1,p.y-1,2,2,p.color)
+      else
+        pix(p.x,p.y,p.color)
       end
     end
   end
@@ -706,6 +705,7 @@ function process_move(x, y)
             end
           end
           if target.t == 'bacteria' then
+            e.ac=target
             e.p = 3
             local attack_shield = 1
             local defend_shield = 2
@@ -742,6 +742,7 @@ function process_division()
       if #open>0 then
         local nc=gen_cell('bacteria',open[1][1],open[1][2])
         nc.s=copy(cell.s)
+        nc.bc={x=cell.x,y=cell.y,f=0}
         table.insert(cells,nc)
       end
     end
@@ -892,12 +893,14 @@ function gen_cell(t,x,y)
     p=0, -- (move) processed id (0=not processed,1=moved,2=cannot move,3=attacked)
     s={0,0,0,0}, -- shield (up down left right) -> (wbc and bacteria)
     sdp=false, -- shield damage particles
+    bc=false, -- bacteria clone data (for spawn anim)
+    ac=false, -- reference to the last attacked cell
     d=false -- destroy
   }
   return e
 end
 
-function gen_particles(x,y)
+function gen_particles(x,y,tx,ty)
   local p={
     f=0,
     x=x,
@@ -919,8 +922,8 @@ function gen_particles(x,y)
   -- bacteria particles
   for i=1,rint(10,20) do
     local particle={
-      x=(x-1)*32+16+112+(move.x*32)-(move.x*16),
-      y=(y-1)*32+16+(move.y*32)-(move.y*16),
+      x=(tx-1)*32+16+112-(move.x*16),
+      y=(ty-1)*32+16-(move.y*16),
       vx=rint(-100,100)/100/2,
       vy=rint(-100,100)/100/2,
       color=0
@@ -973,25 +976,41 @@ end
 function draw_cell(c)
   local sx=(c.x-1)*32+112
   local sy=(c.y-1)*32
-  -- wbc move anim
+  -- move anims
   if move.f>0 and f-move.f<movespeed then
     local mframe=f-move.f
-    -- move
+    -- wbc move
     if c.p==1 then
       sx=sx-(32*move.x)+(move.x*mframe)*3
       sy=sy-(32*move.y)+(move.y*mframe)*3
     end
-    -- bump
+    -- wbc bump
     if c.p>1 then
       sx=sx+move.x*(movespeed-mframe)
       sy=sy+move.y*(movespeed-mframe)
     end
-    -- shield damage particles
+    -- attack shield damage particles
     if c.p==3 then
       if not c.sdp then
         c.sdp=true
-        local p=gen_particles(c.x,c.y)
+        local p=gen_particles(c.x,c.y,c.ac.x,c.ac.y)
         table.insert(particles,p)
+      end
+    end
+    -- bacteria division
+    if c.bc then
+      if c.bc.f<movespeed then
+        c.bc.f=c.bc.f+1
+        local px=c.x-c.bc.x
+        local py=c.y-c.bc.y
+        -- resolve wrap-around
+        if px==3 then px=-1 end
+        if px==-3 then px=1 end
+        if py==3 then py=-1 end
+        if py==-3 then py=1 end
+        --
+        sx=sx-(32*px)+(px*mframe)*3
+        sy=sy-(32*py)+(py*mframe)*3
       end
     end
   end
