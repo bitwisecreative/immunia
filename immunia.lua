@@ -28,7 +28,7 @@ function BOOT()
   -- 0 = current level
   -- 1 = bgm
   -- 2 = sfx
-pmem(0,69)
+--pmem(0,0)
 
   -- seed rng
   math.randomseed(tstamp())
@@ -109,7 +109,10 @@ pmem(0,69)
   set_levels()
   -- get current level
   level=pmem(0)
-  if level<1 then level=1 end
+  if level<1 then
+    level=1
+    pmem(0,1)
+  end
   -- load menu if maxed
   if level>#levels then
     screen='menu'
@@ -181,6 +184,26 @@ function load_level(l)
 
 end
 
+function random_level_select()
+  local tries=1
+  local function rls()
+    level_select[1]=0
+    if pmem(0)>=100 then
+      level_select[1]=rint(0,9)
+    end
+    level_select[2]=rint(0,9)
+    level_select[3]=rint(0,9)
+    if level_select_value()==0 then level_select[3]=1 end
+    return level_select_value()
+  end
+  local r=rls()
+  while r>pmem(0) do
+    tries=tries+1
+    r=rls()
+  end
+  --trace('RLS: '..tries)
+end
+
 function draw_menu()
   -- bg
   rect(0,0,sw,sh,1)
@@ -196,13 +219,41 @@ function draw_menu()
   print("Game Menu",100,5,0,false,2)
 
   -- level select
-  print("Level Select:",110,30,10,false,1)
+  local lsleft=130
+  print("Level Select:",lsleft-30,25,10,false,1)
   local lc=2
   if level_select_ok() then lc=6 end
-  print(level_select[1]..level_select[2]..level_select[3],110,60,lc,true,2)
+  print(level_select[1]..level_select[2]..level_select[3],lsleft,60,lc,true,2)
 
   -- vsep line
   line(90,40,90,100,0)
+
+  -- master ;)
+  local mcolors={2,3,4,5,10,11,12}
+  if not mcolor then mcolor=1 end -- global on-demand -.-
+  local mleft=92
+  rect(mleft,95,145,32,0)
+  if pmem(0)>#levels then
+    for i=0,4 do
+      spr(193,mleft+4+(i*10),97)
+    end
+  end
+  pix(mleft,95,1)
+  pix(mleft+144,95,1)
+  pix(mleft,95+31,1)
+  pix(mleft+144,95+31,1)
+  for y=-1,1 do
+    for x=-1,1 do
+      print('You\'ve mastered the game!',mleft+4+x,108+y,15)
+      print('Select any level! :D',mleft+4+x,118+y,15)
+    end
+  end
+  if f%7==0 then
+    mcolor=mcolor+1
+    if mcolor>#mcolors then mcolor=1 end
+  end
+  print('You\'ve mastered the game!',mleft+4,108,mcolors[mcolor])
+  print('Select any level! :D',mleft+4,118,mcolors[mcolor])
 
   -- settings buttons
   if #buttons==0 then
@@ -212,10 +263,15 @@ function draw_menu()
     end)
     table.insert(buttons,back_button)
 
-    local bgm_button=button:new('BGM On',3,60,function()
+    local bgm_button=button:new('BGM On',3,50,function()
       bgm_toggle()
     end)
     table.insert(buttons,bgm_button)
+
+    local sfx_button=button:new('SFX On',3,70,function()
+      sfx_toggle()
+    end)
+    table.insert(buttons,sfx_button)
 
     local reset_button=button:new('Reset',3,90,function()
       reset()
@@ -223,37 +279,42 @@ function draw_menu()
     table.insert(buttons,reset_button)
 
     -- this kindof sucks but oh well...
-    local lsup1_button=button:new('+',110,40,function()
+    local lsup1_button=button:new('+',lsleft,40,function()
       update_level_select(1,1)
     end)
     table.insert(buttons,lsup1_button)
 
-    local lsup2_button=button:new('+',122,40,function()
+    local lsup2_button=button:new('+',lsleft+12,40,function()
       update_level_select(2,1)
     end)
     table.insert(buttons,lsup2_button)
 
-    local lsup3_button=button:new('+',134,40,function()
+    local lsup3_button=button:new('+',lsleft+24,40,function()
       update_level_select(3,1)
     end)
     table.insert(buttons,lsup3_button)
 
-    local lsdown1_button=button:new('-',110,75,function()
+    local lsdown1_button=button:new('-',lsleft,75,function()
       update_level_select(1,-1)
     end)
     table.insert(buttons,lsdown1_button)
 
-    local lsdown2_button=button:new('-',122,75,function()
+    local lsdown2_button=button:new('-',lsleft+12,75,function()
       update_level_select(2,-1)
     end)
     table.insert(buttons,lsdown2_button)
 
-    local lsdown3_button=button:new('-',134,75,function()
+    local lsdown3_button=button:new('-',lsleft+24,75,function()
       update_level_select(3,-1)
     end)
     table.insert(buttons,lsdown3_button)
 
-    local lsgo_button=button:new('Go!',155,57,function()
+    local lsrnd_button=button:new('???',lsleft-28,57,function()
+      random_level_select()
+    end)
+    table.insert(buttons,lsrnd_button)
+
+    local lsgo_button=button:new('Go!',lsleft+40,57,function()
       if level_select_ok() then
         load_level(level_select_value())
         screen='game'
@@ -269,6 +330,12 @@ function draw_menu()
       button.text='BGM On'
       if pmem(1)==1 then
         button.text='BGM Off'
+      end
+    end
+    if string.sub(button.text,1,3)=='SFX' then
+      button.text='SFX On'
+      if pmem(2)==1 then
+        button.text='SFX Off'
       end
     end
   end
@@ -1378,6 +1445,11 @@ function bgm_toggle()
     music(0)
   end
   pmem(1,bgm_off)
+end
+
+function sfx_toggle()
+  if sfx_off==1 then sfx_off=0 else sfx_off=1 end
+  pmem(2,sfx_off)
 end
 
 function get_win_lose_message(is_win)
