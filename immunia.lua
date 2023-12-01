@@ -27,6 +27,8 @@ function BOOT()
   -- pmem map
   -- 0 = current level
   -- 1 = bgm
+  -- 2 = sfx
+pmem(0,69)
 
   -- seed rng
   math.randomseed(tstamp())
@@ -85,19 +87,8 @@ function BOOT()
     music(0)
   end
 
-  -- move sfx
+  -- move sfx (because there's just one dominant sound per move...)
   movesfx=false
-  sfx_map={
-    bump=32, -- d3
-    move=33, -- d2
-    attack=34, -- d2
-    bacteria_death=35, -- d3
-    wbc_death=36, -- d2
-    win=37, -- d6
-    lose=38, -- d2
-    button=39, -- d6
-    division=40, -- d2
-  }
 
   -- level select
   level_select={0,0,1}
@@ -119,8 +110,11 @@ function BOOT()
   -- get current level
   level=pmem(0)
   if level<1 then level=1 end
-  -- random level if maxed
-  if level>#levels then level=rint(1,#levels) end
+  -- load menu if maxed
+  if level>#levels then
+    screen='menu'
+    level=rint(1,#levels)
+  end
 
   load_level()
 end
@@ -147,7 +141,20 @@ end
 
 function play_sfx(sound)
   -- sfx(id note=-1 duration=-1 channel=0 volume=15 speed=0)
-  sfx(sfx_map[sound],-1,-1,3)
+  sfx_map={ -- name={id,note,duration,volume,speed}
+    bump={32,'D-3',60,15,8},
+    move={33,'D-2',60,15,7},
+    attack={34,'D-2',60,15,8},
+    bacteria_death={35,'D-3',60,15,7},
+    wbc_death={36,'D-2',60,15,5},
+    win={37,'D-6',60,15,1},
+    lose={38,'D-2',60,15,2},
+    button={39,'D-6',60,15,7},
+    division={40,'D-2',60,15,1},
+  }
+  if pmem(2)==0 then
+    sfx(sfx_map[sound][1],sfx_map[sound][2],sfx_map[sound][3],3,sfx_map[sound][4],sfx_map[sound][5]-5)
+  end
 end
 
 function load_level(l)
@@ -277,6 +284,18 @@ function draw_game()
   -- level
   print("Level: ",3,30,0,false,1)
   print(numpad(level,3),38,30,10,true,1)
+
+  -- special notes
+  local special_notes={
+    [69]= "nice",
+    [311]="has grassroots",
+    [666]="Ah geez",
+    [777]="Lucky!",
+    [999]="!!!..."
+  }
+  if special_notes[level] then
+    print(special_notes[level],58,30,10,false,1,true)
+  end
 
   -- division
   print("Bacteria",3,46,0,false,1)
@@ -486,6 +505,7 @@ function draw_game()
   local bacteria_cells=get_cell_count('bacteria')
   if bacteria_cells==0 then
     if not win_lose.active then
+      movesfx='win'
       win_lose.active=true
       win_lose.f=f
       win_lose.is_win=true
@@ -496,6 +516,7 @@ function draw_game()
     local wbc_cells=get_cell_count('wbc')
     if wbc_cells==0 then
       if not win_lose.active then
+        movesfx='lose'
         win_lose.active=true
         win_lose.f=f
         win_lose.is_win=false
@@ -527,6 +548,12 @@ function draw_game()
       if win_lose.is_win then
         level=level+1
         if level>pmem(0) then pmem(0,level) end
+        -- maxed
+        if level>#levels then
+          screen='menu'
+          level=rint(1,#levels)
+        end
+        --
       end
       load_level()
     end
@@ -744,15 +771,35 @@ function process_move(x, y)
     end
   end
 
+  -- determine movesfx
+  local msfx=0
+  local wbcs=get_cells_by_type('wbc')
+  for _,cell in pairs(wbcs) do
+    if cell.p>msfx then msfx=cell.p end  
+  end
+
   -- Remove dead cells
   local i = #cells
   while i > 0 do
     if cells[i].d then
+      -- bacteria death sfx
+      if cells[i].t=='bacteria' and msfx<5 then msfx=4 end
+      -- wbc death sfx
+      if cells[i].t=='wbc' then msfx=5 end
+      --
       table.insert(particles,gen_death_particles(cells[i].t,cells[i].x,cells[i].y))
       table.remove(cells, i)
     end
     i = i - 1
   end
+
+  -- set movesfx
+  if msfx==1 then movesfx='move' end
+  if msfx==2 then movesfx='bump' end
+  if msfx==3 then movesfx='attack' end
+  if msfx==4 then movesfx='bacteria_death' end
+  if msfx==5 then movesfx='wbc_death' end
+
 end
 
 function process_division()
@@ -1338,6 +1385,12 @@ function get_win_lose_message(is_win)
     "level=level+1",
     ":D",
     "^_^",
+    "Nice!",
+    "Wow! So win!",
+    "Masterful!",
+    "Excellent!",
+    "A+",
+    "Impressive!"
   }
   local lose={
     "You lose!",
@@ -1354,6 +1407,12 @@ function get_win_lose_message(is_win)
     "Bacteria WINS!",
     "Dang...",
     "Try again",
+    "Game Over",
+    "Wow! So lose!",
+    "Nice try!",
+    "So close! (Right?)",
+    "Ouch!",
+    "Ah geez"
   }
   if is_win then return win[rint(1,#win)] end
   return lose[rint(1,#lose)]
