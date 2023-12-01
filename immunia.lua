@@ -56,6 +56,9 @@ function BOOT()
   -- buttons
   buttons={}
 
+  -- particles
+  particles={}
+
   -- move
   movespeed=9
   movesperlevel=13 -- this was max solution moves from _levelgen db
@@ -297,6 +300,51 @@ function draw_game()
     end
   end
 
+  -- inline tutorial
+  local tut={}
+  table.insert(tut,{
+    'Welcome to Immunia!',
+    'A simple puzzle game about',
+    'white blood cells trying to',
+    'kill all the bacteria. Move',
+    'the cells with up, down, left,',
+    'and right (swiping supported)',
+    'to attack the bacteria.',
+  })
+  table.insert(tut,{
+    'Good! Pretty simple, right?',
+    'The lines inside the cells',
+    'protect the nucleus. Attack',
+    'the exposed nucleus to kill',
+    'the cell. If all your cells',
+    'die, but still killed all the',
+    'bacteria, that\'s a win!',
+  })
+  table.insert(tut,{
+    'Great! Just a couple more',
+    'things... Spaces can be',
+    'blocked. But, the map has',
+    'wrap-around movement. Move',
+    'right on this map until you',
+    'clear it to see for yourself.',
+  })
+  table.insert(tut,{
+    'Wonderful! One last thing...',
+    'Bacteria will divide every 13',
+    'moves. Be sure to kill them',
+    'quickly! Enjoy the game!'
+  })
+  if tut[level]~=nil then
+    rectb(80,0,200,#tut[level]*9+1,0)
+    rect(81,0,200,#tut[level]*9,15)
+    local tuty=2
+    local tutc=11
+    for _,line in pairs(tut[level]) do
+      print(line,83,tuty,tutc)
+      tuty=tuty+9
+    end
+  end
+  
   -- controls
   if not win_lose.active then
     local mx,my,mb=mouse()
@@ -394,51 +442,6 @@ function draw_game()
     end
   end
 
-  -- inline tutorial
-  local tut={}
-  table.insert(tut,{
-    'Welcome to Immunia!',
-    'A simple puzzle game about',
-    'white blood cells trying to',
-    'kill all the bacteria. Move',
-    'the cells with up, down, left,',
-    'and right (swiping supported)',
-    'to attack the bacteria.',
-  })
-  table.insert(tut,{
-    'Good! Pretty simple, right?',
-    'The lines inside the cells',
-    'protect the nucleus. Attack',
-    'the exposed nucleus to kill',
-    'the cell. If all your cells',
-    'die, but still killed all the',
-    'bacteria, that\'s a win!',
-  })
-  table.insert(tut,{
-    'Great! Just a couple more',
-    'things... Spaces can be',
-    'blocked. But, the map has',
-    'wrap-around movement. Move',
-    'right on this map until you',
-    'clear it to see for yourself.',
-  })
-  table.insert(tut,{
-    'Wonderful! One last thing...',
-    'Bacteria will divide every 13',
-    'moves. Be sure to kill them',
-    'quickly! Enjoy the game!'
-  })
-  if tut[level]~=nil then
-    rectb(80,0,200,#tut[level]*9+1,0)
-    rect(81,0,200,#tut[level]*9,15)
-    local tuty=2
-    local tutc=11
-    for _,line in pairs(tut[level]) do
-      print(line,83,tuty,tutc)
-      tuty=tuty+9
-    end
-  end
-
   -- move arrows
   -- arrows
   if f%arrowblink[2]==0 then arrowblink[1]= not arrowblink[1] end
@@ -512,6 +515,26 @@ function draw_game()
         if level>pmem(0) then pmem(0,level) end
       end
       load_level()
+    end
+  end
+
+  -- particles
+  for _,pp in pairs(particles) do
+    pp.f=pp.f+1
+    local show=true;
+    if pp.f>20 then show=f%2==1 end
+    for _,p in pairs(pp.particles) do
+      p.x=p.x+p.vx
+      p.y=p.y+p.vy
+      if show then
+        --pix(p.x,p.y,p.color)
+        rect(p.x-1,p.y-1,2,2,p.color)
+      end
+    end
+  end
+  for i=#particles,1,-1 do
+    if particles[i].f>30 then
+      table.remove(particles,i)
     end
   end
 
@@ -703,6 +726,7 @@ function process_move(x, y)
   local i = #cells
   while i > 0 do
     if cells[i].d then
+      table.insert(particles,gen_death_particles(cells[i].t,cells[i].x,cells[i].y))
       table.remove(cells, i)
     end
     i = i - 1
@@ -853,6 +877,7 @@ end
 function reset_cell_processed()
   for k,cell in pairs(cells) do
     cell.p=0
+    cell.sdp=false
   end
 end
 
@@ -866,9 +891,76 @@ function gen_cell(t,x,y)
     a=1, -- anim, all use 6 frames (same anims...)
     p=0, -- (move) processed id (0=not processed,1=moved,2=cannot move,3=attacked)
     s={0,0,0,0}, -- shield (up down left right) -> (wbc and bacteria)
+    sdp=false, -- shield damage particles
     d=false -- destroy
   }
   return e
+end
+
+function gen_particles(x,y)
+  local p={
+    f=0,
+    x=x,
+    y=y,
+    particles={}
+  }
+  -- wbcs particles
+  for i=1,rint(10,20) do
+    local particle={
+      x=(x-1)*32+16+112+(move.x*16),
+      y=(y-1)*32+16+(move.y*16),
+      vx=rint(-100,100)/100/2,
+      vy=rint(-100,100)/100/2,
+      color=1
+      --color=10
+    }
+    table.insert(p.particles,particle)
+  end
+  -- bacteria particles
+  for i=1,rint(10,20) do
+    local particle={
+      x=(x-1)*32+16+112+(move.x*32)-(move.x*16),
+      y=(y-1)*32+16+(move.y*32)-(move.y*16),
+      vx=rint(-100,100)/100/2,
+      vy=rint(-100,100)/100/2,
+      color=0
+      --color=2
+    }
+    table.insert(p.particles,particle)
+  end
+  return p
+end
+
+function gen_death_particles(t,x,y)
+  local p={
+    f=0,
+    x=x,
+    y=y,
+    particles={}
+  }
+  local color=10
+  if t=='bacteria' then color=2 end
+  for i=1,rint(20,30) do
+    local particle={
+      x=(x-1)*32+16+112,
+      y=(y-1)*32+16,
+      vx=rint(-100,100)/100/2,
+      vy=rint(-100,100)/100/2,
+      color=color
+    }
+    table.insert(p.particles,particle)
+  end
+  for i=1,rint(5,10) do
+    local particle={
+      x=(x-1)*32+16+112,
+      y=(y-1)*32+16,
+      vx=rint(-100,100)/100/2,
+      vy=rint(-100,100)/100/2,
+      color=1
+    }
+    table.insert(p.particles,particle)
+  end
+  return p
 end
 
 function draw_empty(x,y)
@@ -881,12 +973,26 @@ end
 function draw_cell(c)
   local sx=(c.x-1)*32+112
   local sy=(c.y-1)*32
-  -- todo move anim wip
+  -- wbc move anim
   if move.f>0 and f-move.f<movespeed then
     local mframe=f-move.f
+    -- move
     if c.p==1 then
       sx=sx-(32*move.x)+(move.x*mframe)*3
       sy=sy-(32*move.y)+(move.y*mframe)*3
+    end
+    -- bump
+    if c.p>1 then
+      sx=sx+move.x*(movespeed-mframe)
+      sy=sy+move.y*(movespeed-mframe)
+    end
+    -- shield damage particles
+    if c.p==3 then
+      if not c.sdp then
+        c.sdp=true
+        local p=gen_particles(c.x,c.y)
+        table.insert(particles,p)
+      end
     end
   end
   --
