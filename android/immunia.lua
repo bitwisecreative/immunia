@@ -22,14 +22,17 @@ end
 
 -- INIT
 function BOOT()
-  trace('-- BOOT --')
+  --trace('-- BOOT --')
 
   -- pmem map
   -- 0 = current level
   -- 1 = bgm
   -- 2 = sfx
---pmem(0,999)
+--pmem(0,1)
 
+  -- outer background
+  poke(0x03FF8,15)
+  
   -- seed rng
   math.randomseed(tstamp())
 
@@ -414,21 +417,23 @@ function draw_game()
   local tut={}
   table.insert(tut,{
     'Welcome to Immunia!',
-    'A simple puzzle game about',
-    'white blood cells trying to',
-    'kill all the bacteria. Move',
-    'the cells with up, down, left,',
-    'and right (swiping supported)',
+    'A simple puzzle game where',
+    'you control white blood',
+    'cells to kill all the',
+    'bacteria. Move the cells',
+    'with up, down, left, and',
+    'right (swiping supported)',
     'to attack the bacteria.',
   })
   table.insert(tut,{
     'Good! Pretty simple, right?',
     'The lines inside the cells',
-    'protect the nucleus. Attack',
-    'the exposed nucleus to kill',
-    'the cell. If all your cells',
-    'die, but still killed all the',
-    'bacteria, that\'s a win!',
+    'protect the nucleus.',
+    'Attack the exposed nucleus',
+    'to kill the cell. If all',
+    'your cells die, but still',
+    'killed all the bacteria,',
+    'you win!',
   })
   table.insert(tut,{
     'Great! Just a couple more',
@@ -436,21 +441,28 @@ function draw_game()
     'blocked. But, the map has',
     'wrap-around movement. Move',
     'right on this map until you',
-    'clear it to see for yourself.',
+    'clear it to see for',
+    'yourself.',
   })
   table.insert(tut,{
     'Wonderful! One last thing...',
-    'Bacteria will divide every 13',
-    'moves. Be sure to kill them',
-    'quickly! Enjoy the game!'
+    'Bacteria will divide every',
+    '13 moves. Be sure to kill',
+    'them quickly! Enjoy!',
   })
   if tut[level]~=nil then
-    rectb(80,0,200,#tut[level]*9+1,0)
-    rect(81,0,200,#tut[level]*9,15)
-    local tuty=2
+    --rectb(80,0,160,#tut[level]*9+1,15)
+    --rect(81,0,200,#tut[level]*9,15)
+    local tutx=90
+    local tuty=4
     local tutc=11
     for _,line in pairs(tut[level]) do
-      print(line,83,tuty,tutc)
+      for y=-1,1 do
+        for x=-1,1 do
+          print(line,tutx+x,tuty+y,15)
+        end
+      end
+      print(line,tutx,tuty,tutc)
       tuty=tuty+9
     end
   end
