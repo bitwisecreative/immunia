@@ -3,7 +3,7 @@
 -- desc:    Simple immunity puzzle game
 -- site:    https://github.com/bitwisecreative/immunia
 -- license: MIT License
--- version: 0.1
+-- version: 0.2
 -- script:  lua
 
 -- menu: OPEN
@@ -20,6 +20,10 @@ function MENU(i)
   GameMenu[i+1]()
 end
 
+-- ANDROID VERSION
+-- Uses custom-build wasm file that sets integer scale default off. See ./README.md
+--
+
 -- INIT
 function BOOT()
   --trace('-- BOOT --')
@@ -29,9 +33,6 @@ function BOOT()
   -- 1 = bgm
   -- 2 = sfx
 --pmem(0,1)
-
-  -- outer background
-  poke(0x03FF8,15)
   
   -- seed rng
   math.randomseed(tstamp())
@@ -131,6 +132,13 @@ function TIC()
   f=f+1
   cls(0)
 
+  -- outer background
+  poke(0x03FF8,15)
+
+  -- hide mouse (android)
+  poke(0x3ffb,1) -- 128 default value
+
+  -- screens
   if screen=='menu' then
     draw_menu()
   end
@@ -143,6 +151,7 @@ function TIC()
   for _,b in pairs(buttons) do
     b:draw()
   end
+
 end
 
 function play_sfx(sound)
@@ -417,13 +426,10 @@ function draw_game()
   local tut={}
   table.insert(tut,{
     'Welcome to Immunia!',
-    'A simple puzzle game where',
-    'you control white blood',
-    'cells to kill all the',
-    'bacteria. Move the cells',
-    'with up, down, left, and',
-    'right (swiping supported)',
-    'to attack the bacteria.',
+    'You control white blood',
+    'cells by swiping up, down',
+    'left, and right. The goal',
+    'is to kill all the bacteria.'
   })
   table.insert(tut,{
     'Good! Pretty simple, right?',
