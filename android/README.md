@@ -62,3 +62,52 @@ I had to pull a fresh clone for this (emscripten) as I'd somehow messed up the b
 ----
 
 Building the APK with Capacitor...
+
+Helpful docs:
+
+https://capacitorjs.com/docs/getting-started
+
+https://capacitorjs.com/docs/android
+
+https://capacitorjs.com/docs/cli
+
+https://capacitorjs.com/docs/core-apis/android
+
+----
+
+`npm init @capacitor/app`
+
+{fill out questions}
+
+`cd my-app`
+
+`npm install`
+
+`npm install @capacitor/android`
+
+`npx cap add android`
+
+{copy tic web files to my-app/dist}
+
+`npx cap sync`
+
+`npx cap run android`
+
+Tips:
+
+To make updates make your changes in ./dist then run `npx cap sync`
+List emulators `npx cap run --list android`
+Run specific emulator `npx cap run --target [id] android`
+
+Update splash screen and icon: https://capacitorjs.com/docs/guides/splash-screens-and-icons
+
+Final build:
+https://capacitorjs.com/docs/cli/commands/build
+
+For final build need all signing options: (Keystore Path, Keystore Password, Keystore Key Alias, Keystore Key Password)
+
+https://developer.android.com/studio/publish/app-signing
+
+`keytool -genkey -v -keystore your_keystore_name.keystore -alias your_alias_name -keyalg RSA -keysize 2048 -validity 10000`
+
+Final build: `npx cap build android`

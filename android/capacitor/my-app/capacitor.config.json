@@ -1,0 +1,11 @@
+{
+  "appId": "com.bitwisecreative.immunia",
+  "appName": "Immunia",
+  "bundledWebRuntime": false,
+  "webDir": "dist",
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 0
+    }
+  }
+}
