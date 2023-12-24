@@ -47,6 +47,37 @@ if(isset($_POST['rowid'])&&isset($_POST['rating'])){
   exit;
 }
 
+// Get Level Fix
+if(isset($_GET['level_fix'])){
+  $pdo=getDb();
+  $q='select rowid,* from levels where rating>0 and difficulty is null order by rating asc, rowid asc limit 1';
+  $s=$pdo->prepare($q);
+  $s->execute();
+  $r=$s->fetch();
+  echo json_encode($r);
+  exit;
+}
+
+// Set Level Fix
+if(isset($_POST['rowid'])&&isset($_POST['difficulty'])&&isset($_POST['state_improved'])){
+  $pdo=getDb();
+  $q='update levels set difficulty=?, state_improved=? where rowid=?';
+  $s=$pdo->prepare($q);
+  $s->execute([$_POST['difficulty'],$_POST['state_improved'],$_POST['rowid']]);
+  exit;
+}
+
+// Get number of fixed levels
+if(isset($_GET['num_fixed'])){
+  $pdo=getDb();
+  $q='select count(*) as num_fixed from levels where difficulty is not null';
+  $s=$pdo->prepare($q);
+  $s->execute();
+  $r=$s->fetch();
+  echo json_encode($r);
+  exit;
+}
+
 // Misc tools...
 if(isset($_GET['tools'])){
   $pdo=getDb();
@@ -297,6 +328,9 @@ span.tiny-note {
     font-size: smaller;
     color: #e4beef;
 }
+small{
+  color:goldenrod;
+}
 </style>
 </head>
 <body>
@@ -330,23 +364,29 @@ span.tiny-note {
   </p>
 
   <p>
+    <label>Load State String</label>
+    <textarea id="statestring" rows="1" cols="80"></textarea>
+    <button id="load">Load</button>
+  </p>
+
+  <p>
+    <a href="#level_fix">Level Fix</a> <small><span id="num-fixed"></span></small><br />
+    <textarea rows="10" cols="80" id="level_fix_output"></textarea>
+  </p>
+
+  <p>
     <a href="#levelgen_single">Run Levelgen Program Once</a>
   </p>
 
   <p>
     <a href="#levelgen">Run Levelgen Program Continuous</a>
   </p>
-
+  
   <p>
     <a href="#play_and_rate">Play and Rate</a><br />
+    <small>(Note: This should be N/A with the new Level Fix routine...)</small><br />
     <div id="rate-rowid"></div>
     <div id="rate-send"></div> <span class="tiny-note">You can also rate with 0-9 keys...</span>
-  </p>
-
-  <p>
-    <label>Load State String</label>
-    <textarea id="statestring" rows="1" cols="80"></textarea>
-    <button id="load">Load</button>
   </p>
 
 </div>

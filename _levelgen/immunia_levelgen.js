@@ -90,6 +90,58 @@ $(function(){
         });
       });
     }
+
+    if(mode=='#level_fix'){
+      /**
+       * Difficulty Calc
+       * +2 each bacteria
+       * +.5 each bacteria shields
+       * -2 each move no action
+       * +1 shields broken per move
+       */
+      let difficulty=0;
+      // todo: calc initial difficulty
+      $.get('./?level_fix=1').done(function(d){
+        if(typeof d=='string'){
+          d=JSON.parse(d);
+        }
+        console.log(d);
+        if(!d){
+          $('#level_fix_output').text('Nothing to fix! :)');
+          return;
+        }
+        let win_moves_array=JSON.parse(d.win_moves);
+        let win_moves=win_moves_array[0].split('');
+        $('#level_fix_output').text('Fixing ROWID: '+d.rowid+"\n"+win_moves.join(''));
+        $.get('./?num_fixed=1').done(function(dd){
+          if(typeof dd=='string'){
+            dd=JSON.parse(dd);
+          }
+          $('#num-fixed').text('['+dd.num_fixed+'/999 fixed]');
+        });
+        // animate moves...
+        let win_moves_index=0;
+        let wminterval=setInterval(function(){
+          if(typeof win_moves[win_moves_index]==='undefined'){
+            clearInterval(wminterval);
+            $('#level_fix_output').text($('#level_fix_output').text()+"\nDifficulty: "+difficulty);
+            return;
+          }
+          console.log('win move running '+win_moves_index);
+          let mi=win_moves[win_moves_index];
+          let mxy=get_move_from_i(mi);
+          move(mxy[0],mxy[1]);
+          draw_board();
+          win_moves_index++;
+          // todo: calc running difficulty
+          // todo: map init wbcs
+          // todo: figure state string improved
+        },1000);
+        $('#statestring').val(d.state);
+        state_string($('#statestring').val());
+        draw_board();
+      });
+    }
   
     //
     // EVENTS
@@ -268,6 +320,23 @@ $(function(){
       }
     }
   
+    function get_move_from_i(i){
+      let m=[0,0];
+      if(i==1){
+        m=[0,-1];
+      }
+      if(i==2){
+        m=[0,1];
+      }
+      if(i==3){
+        m=[-1,0];
+      }
+      if(i==4){
+        m=[1,0];
+      }
+      return m;
+    }
+
     function count_cells_by_type(type){
       let c=0;
       cells.forEach((e)=>{
