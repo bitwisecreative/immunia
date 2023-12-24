@@ -1,0 +1,13 @@
+Immunia
+
+Simple 4x4 grid retro puzzle game about white blood cells attacking bacteria.
+
+"Immunia": An Engaging Puzzle Game - Ad-Free - Built with TIC-80!
+
+Embark on a microscopic adventure with "Immunia," an ingenious puzzle game that emerged from the creative cauldron of the GitHub Game Off 2023 Jam. Engage in an intense battle for cellular supremacy all within the charming pixel-art world of TIC-80—a fantasy computer for making, sharing, and playing tiny games.
+
+In "Immunia," strategy meets quick thinking as you command an army of vigilant white blood cells against an onslaught of invasive bacteria. With each calculated swipe, you'll maneuver your cellular defenders to encircle and eradicate the bacterial threat, protecting the nucleus that lies at the heart of your cell.
+
+The game is deceptively simple yet fiendishly compelling. With no ads to interrupt your tactical planning, you're free to lose yourself in the immersive challenge of "Immunia." Each level demands careful thought—a puzzle begging to be solved as you exploit the peculiarities of a looping battlefield where edges connect.
+
+But be warned: after every 13 moves, the bacteria divide, turning the tide of battle and testing the limits of your strategic acumen. Can you adapt and survive in this petri dish of danger? Are you ready to become a heralded Immunologist in this pixelated realm? Let the battle commence!
