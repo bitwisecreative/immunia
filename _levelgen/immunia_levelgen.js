@@ -11,6 +11,7 @@ $(function(){
     maxdepth=13; // levelgen
     win_moves_run_limit=Math.pow(4,maxdepth);
     win_moves_runs=0;
+    attacks_last_move=0;
   
     // mode
     mode='#random_play';
@@ -94,13 +95,22 @@ $(function(){
     if(mode=='#level_fix'){
       /**
        * Difficulty Calc
+       * INIT:
+       * ----
        * +2 each bacteria
-       * +.5 each bacteria shields
+       * add the lowest shield val for each bacteria
+       * MOVE:
+       * ----
        * -2 each move no action
-       * +1 shields broken per move
+       * +1 single attack
+       * +3 double attack
+       * +6 triple attack
+       * +10 quad attack
+       * END:
+       * ----
+       * -2 per remaining wbc
        */
       let difficulty=0;
-      // todo: calc initial difficulty
       $.get('./?level_fix=1').done(function(d){
         if(typeof d=='string'){
           d=JSON.parse(d);
@@ -119,12 +129,65 @@ $(function(){
           }
           $('#num-fixed').text('['+dd.num_fixed+'/999 fixed]');
         });
+        // init board
+        $('#statestring').val(d.state);
+        state_string($('#statestring').val());
+        draw_board();
+        // calc initial difficulty and add init wbc loc/shield data
+        difficulty+=2*count_cells_by_type('bacteria')
+        cells.forEach((e)=>{
+          if(e.t==='bacteria'){
+            let ss=[...e.s];
+            ss.sort();
+            difficulty+=ss[0];
+          }
+          if(e.t==='wbc'){
+            e.initloc=[e.x,e.y];
+            e.initshield=[...e.s];
+          }
+        });
+        console.log('initial difficulty: ',difficulty);        
         // animate moves...
         let win_moves_index=0;
         let wminterval=setInterval(function(){
           if(typeof win_moves[win_moves_index]==='undefined'){
             clearInterval(wminterval);
+            // calc remaining wbc difficulty reduction
+            let wbc_remaining=count_cells_by_type('wbc');
+            if(wbc_remaining>0){
+              console.log(wbc_remaining+' wbcs remaining. difficulty reduced -',2*wbc_remaining);
+              difficulty-=2*wbc_remaining;
+            }
             $('#level_fix_output').text($('#level_fix_output').text()+"\nDifficulty: "+difficulty);
+            // calculate wbcs shield reduction
+            let wbcupdates=[];
+            cells.forEach((e)=>{
+              if(e.t==='wbc'){
+                wbcupdates.push(e);
+              }
+            });
+            state_string($('#statestring').val());
+            cells.forEach((e)=>{
+              if(e.t==='wbc'){
+                wbcupdates.forEach((w)=>{
+                  if(e.x==w.initloc[0]&&e.y==w.initloc[1]){
+                    w.s.forEach((s,si)=>{
+                      e.s[si]-=s;
+                    });
+                  }
+                });
+              }
+            });
+            draw_board();
+            // improved state string
+            let state_improved=state_string();
+            $('#level_fix_output').text($('#level_fix_output').text()+"\nImproved State String:: "+state_improved);
+            // update DB
+            $.post('./',{rowid:rowid,difficulty:difficulty,state_improved:state_improved}).done(function(){
+              setTimeout(function(){
+                location.reload();
+              },100);  
+            });
             return;
           }
           console.log('win move running '+win_moves_index);
@@ -133,13 +196,25 @@ $(function(){
           move(mxy[0],mxy[1]);
           draw_board();
           win_moves_index++;
-          // todo: calc running difficulty
-          // todo: map init wbcs
-          // todo: figure state string improved
-        },1000);
-        $('#statestring').val(d.state);
-        state_string($('#statestring').val());
-        draw_board();
+          // update difficulty
+          if(attacks_last_move===0){
+            console.log('no attacks, difficulty -2');
+            difficulty-=2;
+          }else{
+            let diffinc=1;
+            if(attacks_last_move==2){
+              diffinc=3;
+            }
+            if(attacks_last_move==3){
+              diffinc=6;
+            }
+            if(attacks_last_move==4){
+              diffinc=10;
+            }
+            console.log(attacks_last_move+' attacks! difficulty increase +',diffinc);
+            difficulty+=diffinc;
+          }
+        },50);
       });
     }
   
@@ -337,6 +412,8 @@ $(function(){
       return m;
     }
 
+
+
     function count_cells_by_type(type){
       let c=0;
       cells.forEach((e)=>{
@@ -347,6 +424,20 @@ $(function(){
       return c;
     }
   
+    function count_shields_by_type(type){
+      let c=0;
+      cells.forEach((e)=>{
+        if(e.t==type){
+          e.s.forEach((s)=>{
+            if(s>0){
+              c+=s;
+            }
+          });
+        }
+      });
+      return c;
+    }
+
     // build state from string, or return current state as string
     function state_string(str){
       if(str){
@@ -472,6 +563,8 @@ $(function(){
   
     function move(x,y){
       if(debug) console.log('move: '+x+','+y);
+      //
+      attacks_last_move=0;
       // set all cell.p to 0 (unprocessed)
       cells.forEach((e)=>{
         e.p=0;
@@ -577,6 +670,7 @@ $(function(){
               }
               // process attack
               if(target.t=='bacteria'){
+                attacks_last_move++;
                 e.p=3;
                 // default up
                 let attack_shield=0;
