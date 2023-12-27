@@ -93,6 +93,7 @@ $(function(){
     }
 
     if(mode=='#level_fix'){
+      controls=false;
       /**
        * Difficulty Calc
        * INIT:
@@ -104,8 +105,8 @@ $(function(){
        * -2 each move no action
        * +1 single attack
        * +3 double attack
-       * +6 triple attack
-       * +10 quad attack
+       * +5 triple attack
+       * +7 quad attack
        * END:
        * ----
        * -2 per remaining wbc
@@ -207,10 +208,10 @@ $(function(){
               diffinc=3;
             }
             if(attacks_last_move==3){
-              diffinc=6;
+              diffinc=5;
             }
             if(attacks_last_move==4){
-              diffinc=10;
+              diffinc=7;
             }
             console.log(attacks_last_move+' attacks! difficulty increase +',diffinc);
             difficulty+=diffinc;
