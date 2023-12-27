@@ -99,7 +99,14 @@ To make updates make your changes in ./dist then run `npx cap sync`
 List emulators `npx cap run --list android`
 Run specific emulator `npx cap run --target [id] android`
 
+To install on your actual phone...
+ - Enable developer options
+ - Enable USB debugging
+ - Check the list: `npx cap run --list android`
+ - Target your device: `npx cap run --target [id] android`
+
 Update splash screen and icon: https://capacitorjs.com/docs/guides/splash-screens-and-icons
+(updated file in _work/app-resources then copied to android/capacitor/my-app/resources then run npx capacitor-assets generate)
 
 Final build:
 https://capacitorjs.com/docs/cli/commands/build
