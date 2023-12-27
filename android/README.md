@@ -113,8 +113,50 @@ https://capacitorjs.com/docs/cli/commands/build
 
 For final build need all signing options: (Keystore Path, Keystore Password, Keystore Key Alias, Keystore Key Password)
 
+NOTEL I failed to get manual keystore working with capactitor build. In fact, Capacitor docs say to just use android studio...
+
+Here's what worked:
+
+- Loaded project in ANdroid Studio: android/.capacitor/my-app/android
+- Build->Generate Signed Bundle
+- Setup new keystore, etc. etc...
+- Once build complete, you can _locate_ it from link in output
+- File is: android\capacitor\my-app\android\app\release\app-release.aab
+- Uploading that bundle to Google Play
+
+Then I setup internal testing in Google Play and installed the game using the invite link that looked like: https://play.google.com/apps/internaltest/4701199239886499462
+
+----
+
+Here't the original docs I had for it that didn't work:
+
 https://developer.android.com/studio/publish/app-signing
 
 `keytool -genkey -v -keystore your_keystore_name.keystore -alias your_alias_name -keyalg RSA -keysize 2048 -validity 10000`
 
+I ran this in Capacitor dir:
+`keytool -genkey -v -keystore my-release-key.keystore -alias my-key-alias -keyalg RSA -keysize 2048 -validity 10000`
+
+Then updated the `capacitor.config.json` file like:
+
+```
+{
+ "appId": "com.example.myapp",
+ "appName": "My App",
+ "bundledWebRuntime": false,
+ "webDir": "build",
+ "android": {
+   "release": {
+     "keystore": "./my-release-key.keystore",
+     "storePassword": "storepassword",
+     "alias": "my-key-alias",
+     "password": "keypassword"
+   }
+ }
+}
+```
+
 Final build: `npx cap build android`
+
+NOTE: DOESN'T WORK... USE ANDROID STUDIO...
+
