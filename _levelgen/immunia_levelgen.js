@@ -122,7 +122,8 @@ $(function(){
         }
         let win_moves_array=JSON.parse(d.win_moves);
         let win_moves=win_moves_array[0].split('');
-        $('#level_fix_output').text('Fixing ROWID: '+d.rowid+"\n"+win_moves.join(''));
+        let rowid=d.rowid;
+        $('#level_fix_output').text('Fixing ROWID: '+rowid+"\n"+win_moves.join(''));
         $.get('./?num_fixed=1').done(function(dd){
           if(typeof dd=='string'){
             dd=JSON.parse(dd);
