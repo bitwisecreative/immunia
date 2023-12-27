@@ -220,6 +220,36 @@ $(function(){
       });
     }
   
+    if(mode=='#verify_levels'){
+      controls=false;
+      $.get('./?levels_in_order').done(function(d){
+        if(typeof d=='string'){
+          d=JSON.parse(d);
+        }
+        console.log(d);
+        d.forEach((level)=>{
+          state_string(level.state_improved);
+          let win_moves=JSON.parse(level.win_moves)[0].split('');
+          win_moves.forEach((m,i)=>{
+            if(i+1<win_moves.length){
+              if(count_cells_by_type('bacteria')<1){
+                console.log('PROBLEM! CLEARED BEFORE MOVES ARE DONE!');
+              }
+            }
+            let mm=get_move_from_i(m);
+            move(mm[0],mm[1]);
+            if(i+1==win_moves.length){
+              if(count_cells_by_type('bacteria')>0){
+                console.log('PROBLEM! LEVEL NOT CLEARED!');
+              }else{
+                console.log('LEVEL OK!');
+              }
+            }
+          });
+        });
+      });
+    }
+
     //
     // EVENTS
     //
@@ -413,8 +443,6 @@ $(function(){
       }
       return m;
     }
-
-
 
     function count_cells_by_type(type){
       let c=0;

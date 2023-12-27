@@ -78,6 +78,17 @@ if(isset($_GET['num_fixed'])){
   exit;
 }
 
+// Get levels in order
+if(isset($_GET['levels_in_order'])){
+  $pdo=getDb();
+  $q='select * from levels where rating>0 and difficulty is not null order by difficulty asc, rating asc, rowid asc';
+  $s=$pdo->prepare($q);
+  $s->execute();
+  $r=$s->fetchAll();
+  echo json_encode($r);
+  exit;
+}
+
 // Misc tools...
 if(isset($_GET['tools'])){
   $pdo=getDb();
@@ -117,13 +128,13 @@ if(isset($_GET['tools'])){
 
   // Get all levels in order...
   if(true){
-    $q='select * from levels where rating>0 order by rating asc, rowid asc';
+    $q='select * from levels where rating>0 and difficulty is not null order by difficulty asc, rating asc, rowid asc';
     $s=$pdo->prepare($q);
     $s->execute();
     $r=$s->fetchAll();
     $out='';
     foreach($r as $d){
-      $out.=$d['state']."\n";
+      $out.=$d['state_improved']."\n";
     }
   }
 
@@ -372,6 +383,10 @@ small{
   <p>
     <a href="#level_fix">Level Fix</a> <small><span id="num-fixed"></span></small><br />
     <textarea rows="10" cols="80" id="level_fix_output"></textarea>
+  </p>
+
+  <p>
+    <a href="#verify_levels">Verify Levels</a><br />
   </p>
 
   <p>
